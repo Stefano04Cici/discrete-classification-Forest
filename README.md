@@ -5,7 +5,7 @@
 
 #### Esame di ingegneria della conoscenza, UniBa, realizzato da: 
 
-- [Io](https://github.com/Hue-Jhan)
+- [R.B.](https://github.com/Hue-Jhan)
 
 - [A.B.](https://github.com/Antob0906)
 

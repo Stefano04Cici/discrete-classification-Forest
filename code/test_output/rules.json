@@ -1,0 +1,73 @@
+{
+  "metadata": {
+    "type": "MiniKB",
+    "version": "1.0",
+    "num_thresholds": 7,
+    "position_counter": 7
+  },
+  "thresholds": [
+    {
+      "position": 0,
+      "feature": "carat",
+      "operator": "<=",
+      "value": "medium",
+      "level": "high",
+      "description": "Caratura non superiore a medium per buon rapporto qualità-prezzo",
+      "hierarchical_level": 2
+    },
+    {
+      "position": 1,
+      "feature": "cut",
+      "operator": ">=",
+      "value": "very_good",
+      "level": "medium",
+      "description": "Taglio almeno very_good per buona brillantezza",
+      "hierarchical_level": 3
+    },
+    {
+      "position": 2,
+      "feature": "color",
+      "operator": ">=",
+      "value": "h",
+      "level": "medium",
+      "description": "Colore almeno H (H, G, F, E, D accettabili)",
+      "hierarchical_level": 3
+    },
+    {
+      "position": 3,
+      "feature": "clarity",
+      "operator": ">=",
+      "value": "si1",
+      "level": "medium",
+      "description": "Chiarezza almeno SI1 per poche inclusioni visibili ad occhio nudo",
+      "hierarchical_level": 3
+    },
+    {
+      "position": 4,
+      "feature": "price",
+      "operator": "<=",
+      "value": "medium",
+      "level": "high",
+      "description": "Prezzo non superiore a medium per essere considerato conveniente",
+      "hierarchical_level": 2
+    },
+    {
+      "position": 5,
+      "feature": "depth",
+      "operator": "==",
+      "value": "medium",
+      "level": "medium",
+      "description": "Profondità ottimale (60-64%) per massima brillantezza",
+      "hierarchical_level": 2
+    },
+    {
+      "position": 6,
+      "feature": "table",
+      "operator": "==",
+      "value": "medium",
+      "level": "medium",
+      "description": "Tavola ottimale (55-65%) per proporzioni bilanciate",
+      "hierarchical_level": 2
+    }
+  ]
+}

@@ -372,7 +372,7 @@ class CategoricalDataFrame(pd.DataFrame):
 
 
 
-    def train_model(self, model_path: str = MODEL_PATH, plot_reliability: bool = True) -> None:
+    def train_model(self, model_path: str = MODEL_PATH) -> None:
         pre, selector, target, feats = self.build_preprocessor()
         X, y = self[feats], self[target]
         
@@ -420,9 +420,6 @@ class CategoricalDataFrame(pd.DataFrame):
         
         joblib.dump(payload, model_path)
         print(f"✓ Modello salvato in: {model_path}")
-        
-        if plot_reliability:
-            self.plot_reliability_diagram(model_path=model_path)          
                                          
    
    

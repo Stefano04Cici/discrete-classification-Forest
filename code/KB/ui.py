@@ -1079,6 +1079,7 @@ def ui():
             df.eda()
             input("\nPremi Invio per continuare...")
         elif choice == "6":
+            df.plot_reliability_diagram()
             df.plot_learning_curve_single_run()
             df.evaluate_model_performance()
             input("\nPremi Invio per continuare...")

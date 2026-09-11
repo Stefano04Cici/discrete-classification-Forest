@@ -29,7 +29,7 @@
 
 2. Creare e attivare un nuovo ambiente virtuale
     ```py
-    py -3.11 -m venv venv
+    py -3.11 -m venv .venv
     ```
     ```
     venv\Scripts\activate

@@ -386,6 +386,5 @@ $RECYCLE.BIN/
 *.venv/*
 *__pycache__*
 *.pyc
-*.joblib
 *.json
-*categorical.csv
+diamonds_categorical.csv

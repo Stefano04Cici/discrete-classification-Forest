@@ -1103,7 +1103,3 @@ def ui():
             break
         else:
             print("\nERRORE: Scelta non valida. Inserisci un numero da 1 a 7.")
-
-
-if __name__ == "__main__":
-    ui()

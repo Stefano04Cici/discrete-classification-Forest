@@ -45,7 +45,7 @@
     cd code/
     ```
     ```py
-    python KB/ui.py
+    python KB/main.py
     ```
 
 ***

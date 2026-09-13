@@ -5,6 +5,8 @@ import json
 from threshold_system import ExtendedKB, MiniKB, BeautyLevel, Threshold
 import os
 import pandas as pd
+import config
+from examples_csv_to_prolog import execute_insert_facts
 
 from rdf_exporter import ( 
     kb_to_rdf,
@@ -1070,8 +1072,23 @@ def ui():
             print("\nATTENZIONE: questa operazione potrebbe richiedere alcuni minuti")
             confirm = input("\nProcedere con l'addestramento? (s/n): ").strip().lower()
             if confirm == 's':
+                while True:
+                    try:
+                        num_examples = int(input("\nSu quanti esempi deve essere effettuato l'addestramento? (da 1 a 53940): ").strip())
+                        if 1 <= num_examples <= 53940:
+                            break
+                        else:
+                            print("ERRORE: Il numero deve essere tra 1 e 53940")
+                    except ValueError:
+                        print("ERRORE: Inserisci un numero valido")
+                
+                config.NUM_TRAINING_EXAMPLES = num_examples
+                print(f"\nSto rigenerando i dati con {num_examples} diamanti...")
+                execute_insert_facts(num_examples)
+                df.prolog_to_categorical_dataframe()
+                df.to_csv()
                 print("\nSto addestrando il modello...")
-                df.train_model()
+                df.train_model(num_examples=config.NUM_TRAINING_EXAMPLES)
                 print("\nSUCCESSO: Modello addestrato e salvato!")
             else:
                 print("\nAddestramento annullato")

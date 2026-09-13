@@ -17,3 +17,4 @@ TARGET_COL = 'price'
 SORTED_COLS = ['carat','cut','color','clarity','depth','table','x','y','z','price']
 RANDOM_STATE = 42
 CV_SPLITS = 5
+NUM_TRAINING_EXAMPLES = 500

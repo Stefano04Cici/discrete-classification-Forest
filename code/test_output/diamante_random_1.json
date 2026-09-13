@@ -1,11 +1,11 @@
 {
-    "carat": "medium",
+    "carat": "low",
     "cut": "ideal",
-    "color": "e",
+    "color": "g",
     "clarity": "high",
-    "depth": "medium",
-    "table": "low",
-    "x": "low",
-    "y": "low",
+    "depth": "low",
+    "table": "high",
+    "x": "medium",
+    "y": "high",
     "z": "low"
 }

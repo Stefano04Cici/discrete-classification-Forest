@@ -7,7 +7,7 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pyswip import Prolog
-from config import PROLOG_FILE, CATEGORICAL_CSV, TARGET_COL,MODEL_PATH, CV_SPLITS 
+from config import PROLOG_FILE, CATEGORICAL_CSV, TARGET_COL, MODEL_PATH, CV_SPLITS, NUM_TRAINING_EXAMPLES  
 from scipy.stats import chi2_contingency
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.impute import SimpleImputer
@@ -19,6 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 from typing import Tuple, Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import json
+from collections import Counter
 
 
 from sklearn.preprocessing import LabelEncoder
@@ -40,18 +41,16 @@ from sklearn.metrics import (
     recall_score,
 )
 
-
+from examples_csv_to_prolog import execute_insert_facts 
 
 class CategoricalDataFrame(pd.DataFrame):
     
-    
     def __init__(self) -> None:
         super().__init__()
+        execute_insert_facts(num_diamonds=NUM_TRAINING_EXAMPLES)
         self.prolog_to_categorical_dataframe()
         self.to_csv()
         self.train_model()
-    
-
     
     def prolog_to_categorical_dataframe(self: pd.DataFrame) -> None:
     
@@ -85,15 +84,14 @@ class CategoricalDataFrame(pd.DataFrame):
                         dati[colonna].append(None)
     
         df = pd.DataFrame(dati)
-    
+
         for col in df.columns:
             self[col] = df[col]
 
 
 
     def to_csv(self, path: str = CATEGORICAL_CSV) -> None:
-            
-        pd.DataFrame.to_csv(self, path, index=False)
+        super().to_csv(path, index=False)
 
 
 
@@ -372,20 +370,67 @@ class CategoricalDataFrame(pd.DataFrame):
 
 
 
-    def train_model(self, model_path: str = MODEL_PATH) -> None:
+    def train_model(self, model_path: str = MODEL_PATH, num_examples: int = 500) -> None:
         pre, selector, target, feats = self.build_preprocessor()
         X, y = self[feats], self[target]
         
         le = LabelEncoder()
         y_encoded = le.fit_transform(y)
         class_names = le.classes_
-        
+
+        y_encoded_array = np.asarray(y_encoded).ravel()
+        y_encoded_list = list(y_encoded_array)
+        class_counts = Counter(y_encoded_list)
+        min_class_count = min(class_counts.values())
+        stratify_y = y_encoded_array if min_class_count >= 2 else None
+
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y_encoded, test_size=0.2, stratify=y_encoded, random_state=42
+            X, y_encoded_array, test_size=0.2, stratify=stratify_y, random_state=42
         )
         
+        if num_examples < 500:
+            n_estimators = 50
+            max_depth = 5
+            min_samples_split = 10
+            min_samples_leaf = 5
+            desired_cv = 5
+            cal_method = "sigmoid"
+        elif num_examples < 2000:
+            n_estimators = 100
+            max_depth = 8
+            min_samples_split = 10
+            min_samples_leaf = 3
+            desired_cv = 5
+            cal_method = "sigmoid"
+        elif num_examples < 10000:
+            n_estimators = 200
+            max_depth = 15
+            min_samples_split = 20
+            min_samples_leaf = 3
+            desired_cv = 5
+            cal_method = "sigmoid"
+        elif num_examples <= 30000:
+            n_estimators = 300
+            max_depth = None
+            min_samples_split = 20
+            min_samples_leaf = 2
+            desired_cv = 3
+            cal_method = "sigmoid"
+        else:
+            n_estimators = 500
+            max_depth = None
+            min_samples_split = 20
+            min_samples_leaf = 2
+            desired_cv = 3
+            cal_method = "isotonic"
+        
+        cal_cv = min(desired_cv, max(2, min_class_count))
+        
         clf = RandomForestClassifier(
-            n_estimators=300,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
             n_jobs=-1,
             class_weight="balanced",
             random_state=42,
@@ -393,12 +438,11 @@ class CategoricalDataFrame(pd.DataFrame):
         
         pipe = Pipeline([("pre", pre), ("sel", selector), ("clf", clf)])
         
-        method: str = "sigmoid"
-        cal = CalibratedClassifierCV(estimator=pipe, method=method, cv=3)
+        cal = CalibratedClassifierCV(estimator=pipe, method=cal_method, cv=cal_cv)
         
-        print("Addestramento del modello in corso...")
+        print(f"Addestramento del modello in corso... (n_estimators={n_estimators}, max_depth={max_depth}, calibrazione={cal_method} cv={cal_cv})")
         cal.fit(X_train, y_train)
-        print(f"✓ Modello addestrato con calibrazione ({method})")
+        print(f"✓ Modello addestrato con calibrazione ({cal_method}, cv={cal_cv})")
         
         payload = {
             "model": cal,
@@ -408,7 +452,7 @@ class CategoricalDataFrame(pd.DataFrame):
             },
             "features": feats,
             "calibrated": True,
-            "calibration": {"method": method},
+            "calibration": {"method": cal_method},
             "label_encoder": le,
             "class_names": class_names.tolist(),
             "train_test_split": {
@@ -421,6 +465,8 @@ class CategoricalDataFrame(pd.DataFrame):
         joblib.dump(payload, model_path)
         print(f"✓ Modello salvato in: {model_path}")
                                          
+   
+ 
    
    
     def plot_learning_curve_single_run(
@@ -493,6 +539,8 @@ class CategoricalDataFrame(pd.DataFrame):
         
         plt.show()
     
+    
+  
 
          
     def evaluate_model_performance(self, model_path: str = MODEL_PATH, 
@@ -536,7 +584,7 @@ class CategoricalDataFrame(pd.DataFrame):
         y = y_encoded
         print(f"✓ Dimensioni dataset: {X.shape}")
         
-        class_distribution = np.bincount(y)
+        class_distribution = np.bincount(np.asarray(y, dtype=int))
         if hasattr(class_distribution, 'tolist'):
             class_distribution_list = class_distribution.tolist()
         else:

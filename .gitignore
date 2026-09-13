@@ -388,4 +388,4 @@ $RECYCLE.BIN/
 *.pyc
 *.joblib
 *.json
-*categorial.csv
+*categorical.csv

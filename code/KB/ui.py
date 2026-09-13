@@ -1074,21 +1074,17 @@ def ui():
             if confirm == 's':
                 while True:
                     try:
-                        num_examples = int(input("\nSu quanti esempi deve essere effettuato l'addestramento? (da 1 a 53940): ").strip())
-                        if 1 <= num_examples <= 53940:
+                        num_examples = int(input("\nSu quanti esempi deve essere effettuato l'addestramento? (da 25 a 53940): ").strip())
+                        if 25 <= num_examples <= 53940:
                             break
                         else:
-                            print("ERRORE: Il numero deve essere tra 1 e 53940")
+                            print("ERRORE: Il numero deve essere tra 25 e 53940")
                     except ValueError:
                         print("ERRORE: Inserisci un numero valido")
-                
+
                 config.NUM_TRAINING_EXAMPLES = num_examples
                 print(f"\nSto rigenerando i dati con {num_examples} diamanti...")
-                execute_insert_facts(num_examples)
-                df.prolog_to_categorical_dataframe()
-                df.to_csv()
-                print("\nSto addestrando il modello...")
-                df.train_model(num_examples=config.NUM_TRAINING_EXAMPLES)
+                df = CategoricalDataFrame(num_diamonds=num_examples)   # type: ignore
                 print("\nSUCCESSO: Modello addestrato e salvato!")
             else:
                 print("\nAddestramento annullato")

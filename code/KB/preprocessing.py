@@ -7,7 +7,7 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pyswip import Prolog
-from config import PROLOG_FILE, CATEGORICAL_CSV, TARGET_COL, MODEL_PATH, CV_SPLITS, NUM_TRAINING_EXAMPLES  
+from config import PROLOG_FILE, CATEGORICAL_CSV, TARGET_COL, MODEL_PATH, CV_SPLITS, NUM_TRAINING_EXAMPLES
 from scipy.stats import chi2_contingency
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.impute import SimpleImputer
@@ -44,14 +44,18 @@ from sklearn.metrics import (
 from examples_csv_to_prolog import execute_insert_facts 
 
 class CategoricalDataFrame(pd.DataFrame):
-    
-    def __init__(self) -> None:
+
+    def __init__(self, num_diamonds: int = NUM_TRAINING_EXAMPLES) -> None:
         super().__init__()
-        execute_insert_facts(num_diamonds=NUM_TRAINING_EXAMPLES)
+        execute_insert_facts(num_diamonds=num_diamonds)
         self.prolog_to_categorical_dataframe()
         self.to_csv()
-        self.train_model()
-    
+        self.train_model(num_examples=num_diamonds)
+
+    def delete_csv(self, path: str = CATEGORICAL_CSV) -> None:
+        if os.path.exists(path):
+            os.remove(path)  
+        
     def prolog_to_categorical_dataframe(self: pd.DataFrame) -> None:
     
     

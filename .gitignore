@@ -2,3 +2,6 @@
 *__pycache__/*
 test_output/*
 *.pyc
+*.joblib
+*.json
+*diamonds_categorial.csv*

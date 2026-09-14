@@ -6,7 +6,7 @@ import re
 import os
 from rdflib import Graph, Namespace, Literal, RDF, RDFS, XSD, URIRef, BNode
 from config import MINIKB_PATH, EXKB_PATH, TEST_OUTPUT_DIR
-from threshold_system import ExtendedKB, MiniKB, BeautyLevel, Threshold
+from threshold_system import ExtendedKB, MiniKB, BeautyLevel, Threshold, respects_threshold
 
 
 EX = Namespace("http://example.org/diamonds#")
@@ -31,7 +31,7 @@ def slugify(text: str) -> str:
     return text
 
 
-def kb_to_rdf(kb: ExtendedKB) -> Graph:
+def kb_to_rdf(kb: ExtendedKB, kb_metadata: Optional[Dict[str, Any]] = None) -> Graph:
     g = Graph()
     
     g.bind("ex", EX)           
@@ -158,11 +158,18 @@ def kb_to_rdf(kb: ExtendedKB) -> Graph:
 
     kb_metadata_uri = EX["DiamondsKnowledgeBase"]
     g.add((kb_metadata_uri, RDF.type, QB.DataSet))
-    g.add((kb_metadata_uri, DC.title, Literal("Knowledge Base per Valutazione Diamanti")))
-    g.add((kb_metadata_uri, DC.creator, Literal("Sistema di Intelligenza Artificiale")))
-    g.add((kb_metadata_uri, DC.date, Literal("2024", datatype=XSD.gYear)))
+    
+    if kb_metadata is None:
+        kb_metadata = {}
+    
+    g.add((kb_metadata_uri, DC.title, 
+           Literal(kb_metadata.get('title', "Knowledge Base per Valutazione Diamanti"))))
+    g.add((kb_metadata_uri, DC.creator, 
+           Literal(kb_metadata.get('creator', "Sistema di Intelligenza Artificiale"))))
+    g.add((kb_metadata_uri, DC.date, 
+           Literal(str(kb_metadata.get('date', "2024")), datatype=XSD.gYear)))
     g.add((kb_metadata_uri, DC.description, 
-           Literal("Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C")))
+           Literal(kb_metadata.get('description', "Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C"))))
     g.add((kb_metadata_uri, EX.numThresholds, Literal(len(kb._store), datatype=XSD.integer)))
     g.add((kb_metadata_uri, EX.numCompositeRules, 
            Literal(len(getattr(kb, "composite_rules", [])), datatype=XSD.integer)))
@@ -188,7 +195,19 @@ def load_kb_from_rdf(rdf_path: str) -> ExtendedKB:
     kb = ExtendedKB()
     EX = Namespace("http://example.org/diamonds#")
     
-    for feature_uri, _, _ in g.triples((None, RDF.type, EX.DiamondFeature)):
+    kb._store.clear()
+    kb.position = 0
+    kb.composite_rules = []
+    
+    feature_types = set([EX.DiamondFeature])
+    feature_types |= set(g.subjects(RDFS.subClassOf, EX.DiamondFeature))
+    
+    for feature_uri in g.subjects(RDF.type, None):
+        types = set(g.objects(feature_uri, RDF.type))
+        
+        if not (types & feature_types):
+            continue
+        
         feature_name = str(feature_uri).split("#")[-1]
         
         for _, _, threshold_uri in g.triples((feature_uri, EX.hasThreshold, None)):
@@ -311,7 +330,8 @@ def generate_diamond_rdf_report(
             g.add((eval_uri, EX.expectedOperator, Literal(thr.operator)))
             g.add((eval_uri, EX.expectedValue, Literal(thr.value, datatype=XSD.string)))
             
-            g.add((eval_uri, EX.thresholdRespected, Literal(True, datatype=XSD.boolean)))
+            respected = respects_threshold(observed_value, thr.value, thr.operator)
+            g.add((eval_uri, EX.thresholdRespected, Literal(respected, datatype=XSD.boolean)))
             g.add((diamond_uri, EX.hasThresholdEvaluation, eval_uri))
     
     g.serialize(destination=output_path, format="turtle")
@@ -368,13 +388,124 @@ def load_diamond_report_from_rdf(rdf_path: str) -> List[Dict[str, Any]]:
                 "observed": str(observed) if observed is not None else None,
                 "expected_operator": str(expected_op) if expected_op is not None else None,
                 "expected_value": str(expected_val) if expected_val is not None else None,
-                "respected": str(respected) if respected is not None else None,
+                "respected": respected.toPython() if respected is not None else None,
             })
         report["evaluations"] = evaluations
         
         reports.append(report)
     
     return reports
+
+
+def describe_rdf(rdf_path: str) -> Dict[str, Any]:
+    
+    g = Graph()
+    g.parse(rdf_path, format="turtle")
+    
+    def localname(uri) -> str:
+        return str(uri).split("#")[-1]
+    
+    def as_str(value) -> Optional[str]:
+        return str(value) if value is not None else None
+    
+    def as_int(value) -> Optional[int]:
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+    
+    feature_types = set([EX.DiamondFeature])
+    feature_types |= set(g.subjects(RDFS.subClassOf, EX.DiamondFeature))
+    
+    info: Dict[str, Any] = {
+        "path": rdf_path,
+        "triples": len(g),
+        "type": "kb",
+        "beauty_levels": [],
+        "kb": None,
+        "models": [],
+        "features": [],
+        "rules": [],
+    }
+    
+    if (None, RDF.type, EX.Diamond) in g:
+        info["type"] = "diamond"
+    
+    models = list(g.subjects(RDF.type, SCHEMA.SoftwareApplication))
+    if models:
+        info["type"] = "integrated"
+    
+    for level_uri in g.subjects(RDF.type, EX.BeautyLevel):
+        label = next(g.objects(level_uri, RDFS.label), None)
+        info["beauty_levels"].append({
+            "uri": str(level_uri),
+            "label": as_str(label) if label is not None else localname(level_uri),
+            "appreciation": as_str(next(g.objects(level_uri, EX.appreciation), None)),
+        })
+    
+    kb_uri = EX["DiamondsKnowledgeBase"]
+    if (kb_uri, RDF.type, QB.DataSet) in g:
+        info["kb"] = {
+            "uri": str(kb_uri),
+            "title": as_str(next(g.objects(kb_uri, DC.title), None)),
+            "creator": as_str(next(g.objects(kb_uri, DC.creator), None)),
+            "date": as_str(next(g.objects(kb_uri, DC.date), None)),
+            "description": as_str(next(g.objects(kb_uri, DC.description), None)),
+            "num_thresholds": as_int(next(g.objects(kb_uri, EX.numThresholds), None)),
+            "num_composite_rules": as_int(next(g.objects(kb_uri, EX.numCompositeRules), None)),
+            "models": [localname(m) for m in g.objects(kb_uri, EX.complementsMLModel)],
+        }
+    
+    for model_uri in models:
+        info["models"].append({
+            "uri": str(model_uri),
+            "name": localname(model_uri),
+            "title": as_str(next(g.objects(model_uri, DC.title), None)),
+            "description": as_str(next(g.objects(model_uri, DC.description), None)),
+            "accuracy": next(g.objects(model_uri, EX.modelAccuracy), None),
+            "features": [localname(f) for f in g.objects(model_uri, EX.usesFeature)],
+            "kb": [localname(k) for k in g.objects(model_uri, EX.complementsKnowledgeBase)],
+        })
+    
+    feature_uris = set()
+    for feature_type in feature_types:
+        feature_uris |= set(g.subjects(RDF.type, feature_type))
+    
+    for f_uri in sorted(feature_uris, key=lambda u: str(u)):
+        thresholds = []
+        for thr_uri in g.objects(f_uri, EX.hasThreshold):
+            thresholds.append({
+                "uri": str(thr_uri),
+                "operator": as_str(next(g.objects(thr_uri, EX.thresholdOperator), None)),
+                "value": as_str(next(g.objects(thr_uri, EX.thresholdValue), None)),
+                "level": localname(next(g.objects(thr_uri, EX.indicatesBeautyLevel), None) or ""),
+                "description": as_str(next(g.objects(thr_uri, EX.thresholdDescription), None)),
+            })
+        info["features"].append({
+            "name": localname(f_uri),
+            "uri": str(f_uri),
+            "types": [localname(t) for t in g.objects(f_uri, RDF.type)],
+            "category": as_str(next(g.objects(f_uri, EX.featureCategory), None)),
+            "unit": as_str(next(g.objects(f_uri, SCHEMA.unitCode), None)),
+            "thresholds": thresholds,
+        })
+    
+    for rule_uri in g.subjects(RDF.type, EX.BeautyRule):
+        conditions = []
+        for cond_uri in g.objects(rule_uri, EX.hasCondition):
+            conditions.append({
+                "feature": localname(next(g.objects(cond_uri, EX.appliesToFeature), None) or ""),
+                "operator": as_str(next(g.objects(cond_uri, EX.thresholdOperator), None)),
+                "value": as_str(next(g.objects(cond_uri, EX.conditionValue), None)),
+            })
+        info["rules"].append({
+            "uri": str(rule_uri),
+            "name": as_str(next(g.objects(rule_uri, EX.ruleName), None)),
+            "level": localname(next(g.objects(rule_uri, EX.indicatesBeautyLevel), None) or ""),
+            "conditions": conditions,
+        })
+    
+    return info
 
 
 def query_rdf_kb(
@@ -397,7 +528,7 @@ def query_rdf_kb(
         json_str = qres.serialize(format='json')
         
         if json_str is None or json_str == '':
-            print("[RDF] Warning: JSON serialization returned empty string")
+            print("[RDF] Warning: la serializzazione dei risultati ha restituito una stringa vuota")
             return []
         
         json_data = json.loads(json_str)
@@ -412,7 +543,7 @@ def query_rdf_kb(
         elif 'boolean' in json_data:
             results.append({'boolean': str(json_data['boolean'])})
         
-        print(f"[RDF] Risultati da JSON: {len(results)}")
+        print(f"[RDF] Risultati: {len(results)}")
         
     except Exception as e:
         print(f"[RDF] Errore opzione nucleare: {e}")
@@ -471,9 +602,9 @@ SPARQL_QUERIES = {
         PREFIX ex: <http://example.org/diamonds#>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         
-        SELECT ?feature ?label
+        SELECT DISTINCT ?feature ?label
         WHERE {
-            ?feature a ex:DiamondFeature .
+            ?feature a/rdfs:subClassOf* ex:DiamondFeature .
             ?feature rdfs:label ?label .
         }
         ORDER BY ?label
@@ -494,47 +625,50 @@ SPARQL_QUERIES = {
     
     "count_features": """
         PREFIX ex: <http://example.org/diamonds#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         
-        SELECT (COUNT(?feature) as ?count)
+        SELECT (COUNT(DISTINCT ?feature) AS ?count)
         WHERE {
-            ?feature a ex:DiamondFeature .
+            ?feature a/rdfs:subClassOf* ex:DiamondFeature .
         }
+    """,
+    
+    "composite_thresholds": """
+        PREFIX ex: <http://example.org/diamonds#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        
+        SELECT ?rule ?name ?level ?feature ?operator ?value
+        WHERE {
+            ?rule a ex:BeautyRule .
+            ?rule ex:ruleName ?name .
+            ?rule ex:indicatesBeautyLevel ?level .
+            ?rule ex:hasCondition ?condition .
+            ?condition ex:appliesToFeature ?feature .
+            ?condition ex:thresholdOperator ?operator .
+            ?condition ex:conditionValue ?value .
+        }
+        ORDER BY ?name ?feature
     """
 }
 
 
-def export_kb_with_ml_integration(
+def export_kb_rdf(
     kb: ExtendedKB,
-    model_info: Dict[str, Any],
-    output_base: str = "diamonds_integrated"
+    output_base: str = "diamonds_ai_system",
+    kb_metadata: Optional[Dict[str, Any]] = None
 ) -> str:
     
     os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
     
-    integrated_ttl = os.path.join(TEST_OUTPUT_DIR, f"{output_base}_integrated.ttl")
+    output_ttl = os.path.join(TEST_OUTPUT_DIR, f"{output_base}_kb.ttl")
     
-    g = kb_to_rdf(kb)
+    g = kb_to_rdf(kb, kb_metadata)
     g.bind("schema", SCHEMA)
     g.bind("dc", DC)
     
-    model_uri = EX[f"model_{slugify(model_info.get('name', 'random_forest'))}"]
-    g.add((model_uri, RDF.type, SCHEMA.SoftwareApplication))
-    g.add((model_uri, DC.title, Literal("Modello ML per valutazione diamanti")))
-    g.add((model_uri, DC.description, Literal(model_info.get('description', ''))))
+    g.serialize(destination=output_ttl, format="turtle")
     
-    if 'accuracy' in model_info:
-        g.add((model_uri, EX.modelAccuracy, 
-                    Literal(model_info['accuracy'], datatype=XSD.float)))
-    if 'features' in model_info:
-        for feature in model_info['features']:
-            g.add((model_uri, EX.usesFeature, EX[feature]))
+    print(f"[RDF] Knowledge Base esportata in: {output_ttl}")
+    print(f"[RDF] Triplette RDF generate: {len(g)}")
     
-    kb_uri = EX["DiamondsKnowledgeBase"]
-    g.add((kb_uri, EX.complementsMLModel, model_uri))
-    g.add((model_uri, EX.complementsKnowledgeBase, kb_uri))
-    
-    g.serialize(destination=integrated_ttl, format="turtle")
-    
-    print(f"[RDF] Sistema integrato esportato in: {integrated_ttl}")
-    
-    return integrated_ttl
+    return output_ttl

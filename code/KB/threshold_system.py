@@ -68,6 +68,37 @@ def get_hierarchy_level(categorical_value: str) -> int:
     return 0
 
 
+def respects_threshold(value: str,
+                       threshold_value: str,
+                       operator: str) -> bool:
+    
+    if value is None or threshold_value is None:
+        return False
+    
+    value_level = get_hierarchy_level(value)
+    threshold_level = get_hierarchy_level(threshold_value)
+    
+    if value_level == 0 or threshold_level == 0:
+        return False
+    
+    if operator == "==":
+        return value_level == threshold_level
+    
+    if operator == ">=":
+        return value_level >= threshold_level
+    
+    if operator == "<=":
+        return value_level <= threshold_level
+    
+    if operator == ">":
+        return value_level > threshold_level
+    
+    if operator == "<":
+        return value_level < threshold_level
+    
+    return False
+
+
 
 class Threshold: 
     
@@ -370,6 +401,38 @@ class ExtendedKB(MiniKB):
     def __init__(self):
         super().__init__()
         self.composite_rules: List[Dict[str,Any]]=[]
+        self.populate_default_composite_rules()
+
+
+    def populate_default_composite_rules(self) -> None:
+        
+        self.add_composite_rule(
+            name="DiamantePerfetto",
+            conditions=[
+                ("cut", ">=", "very_good"),
+                ("color", ">=", "h"),
+                ("clarity", ">=", "si1"),
+            ],
+            beautyLevel=BeautyLevel.HIGH
+        )
+        
+        self.add_composite_rule(
+            name="DiamanteEconomico",
+            conditions=[
+                ("price", "<=", "medium"),
+                ("carat", "<=", "medium"),
+            ],
+            beautyLevel=BeautyLevel.MEDIUM
+        )
+        
+        self.add_composite_rule(
+            name="ProporzioniBilanciate",
+            conditions=[
+                ("depth", "==", "medium"),
+                ("table", "==", "medium"),
+            ],
+            beautyLevel=BeautyLevel.MEDIUM
+        )
 
 
     def add_composite_rule(self, 

@@ -17,13 +17,189 @@ from rdf_exporter import (
     load_diamond_report_from_rdf,
     query_rdf_kb,
     SPARQL_QUERIES,
-    export_kb_with_ml_integration
+    export_kb_rdf,
+    describe_rdf
 )
 import os
 import pandas as pd
 
 last_tested_diamond = None
 
+
+def print_rdf_summary(info):
+    
+    tipo_map = {
+        "diamond": "REPORT DIAMANTE",
+        "integrated": "KNOWLEDGE BASE INTEGRATA CON MODELLO ML",
+        "kb": "KNOWLEDGE BASE"
+    }
+    
+    print("\n" + "="*60)
+    print("RESOCONTO FILE RDF".center(60))
+    print("="*60)
+    print(f"  Percorso: {info.get('path')}")
+    print(f"  Triplette: {info.get('triples')}")
+    print(f"  Tipo: {tipo_map.get(info.get('type'), info.get('type'))}")
+    
+    if info.get('beauty_levels'):
+        print("\n== LIVELLI DI BELLEZZA ==")
+        for lv in info['beauty_levels']:
+            print(f"  * {lv['label']}" + (f" ({lv['appreciation']})" if lv.get('appreciation') else ""))
+    
+    if info.get('models'):
+        for m in info['models']:
+            print("\n== MODELLO ML ==")
+            print(f"  Nome: {m['name']}")
+            if m['title']:
+                print(f"  Titolo: {m['title']}")
+            if m['description']:
+                print(f"  Descrizione: {m['description']}")
+            acc = m['accuracy']
+            if isinstance(acc, float):
+                print(f"  Accuracy: {acc:.3f}")
+            elif acc is not None:
+                print(f"  Accuracy: {acc}")
+            if m['features']:
+                print(f"  Feature usate ({len(m['features'])}): {', '.join(m['features'])}")
+            if m['kb']:
+                print(f"  Collegata a KB: {', '.join(m['kb'])}")
+    elif info.get('type') == 'integrated':
+        print("\n== MODELLO ML == (nessun modello rilevato)")
+    
+    kb = info.get('kb')
+    if kb:
+        print("\n== KNOWLEDGE BASE ==")
+        print(f"  Titolo: {kb.get('title')}")
+        if kb.get('creator'):
+            print(f"  Creatore: {kb['creator']}")
+        if kb.get('date'):
+            print(f"  Data: {kb['date']}")
+        if kb.get('description'):
+            print(f"  Descrizione: {kb['description']}")
+        if kb.get('num_thresholds') is not None:
+            print(f"  Soglie dichiarate: {kb['num_thresholds']}")
+        if kb.get('num_composite_rules') is not None:
+            print(f"  Regole composite dichiarate: {kb['num_composite_rules']}")
+        if kb.get('models'):
+            print(f"  Completata da modello/i: {', '.join(kb['models'])}")
+    
+    if info.get('features'):
+        print("\n== CARATTERISTICHE ==")
+        for f in info['features']:
+            dettagli = []
+            if f['types']:
+                dettagli.append("tipo " + ", ".join(f['types']))
+            if f['category']:
+                dettagli.append(f"categoria {f['category']}")
+            if f['unit']:
+                dettagli.append(f"unità {f['unit']}")
+            
+            header = f"  - {f['name']}"
+            if dettagli:
+                header += "  (" + ", ".join(dettagli) + ")"
+            print(header)
+            
+            if f['thresholds']:
+                for t in f['thresholds']:
+                    level = f" [{t['level']}]" if t['level'] else ""
+                    riga = f"      · {t['operator']} {t['value']}{level}"
+                    if t['description']:
+                        riga += f" — {t['description']}"
+                    print(riga)
+            else:
+                print("      · nessuna soglia definita")
+    
+    if info.get('rules'):
+        print("\n== REGOLE COMPOSITE ==")
+        for r in info['rules']:
+            print(f"  * {r['name']} -> {r['level']}")
+            for c in r['conditions']:
+                print(f"      se {c['feature']} {c['operator']} {c['value']}")
+    else:
+        print("\n== REGOLE COMPOSITE == (nessuna)")
+    
+    print("\n" + "="*60)
+
+
+def print_diamond_report(report):
+    
+    print("\n" + "="*60)
+    print("REPORT DIAMANTE".center(60))
+    print("="*60)
+    print(f"Diamante: {report['label']}")
+    print(f"URI: {report['uri']}")
+    
+    if report['features']:
+        print("\nCaratteristiche:")
+        for feature, value in report['features'].items():
+            print(f"  {feature}: {value}")
+    
+    fuzzy = report['fuzzy_beauty_score']
+    if fuzzy is not None:
+        print(f"\nFuzzy score: {fuzzy:.3f}")
+    if report['beauty_category']:
+        print(f"Categoria bellezza: {report['beauty_category']}")
+    
+    if report['evaluations']:
+        print("\nValutazione soglie:")
+        for eval_item in report['evaluations']:
+            respected = eval_item['respected']
+            status = "OK" if str(respected).lower() == "true" else "NON rispettata"
+            print(f"  - {eval_item['feature']}: "
+                  f"osservato={eval_item['observed']}, "
+                  f"atteso {eval_item['expected_operator']} {eval_item['expected_value']} "
+                  f"[{status}]")
+    else:
+        print("\nNessuna valutazione soglie nel report")
+
+
+def print_kb_recap(kb):
+    
+    print(f"Soglie caricate: {len(kb._store)}")
+    for i, (pos, thr) in enumerate(kb._store.items(), 1):
+        print(f"  {i}. {thr.feature} {thr.operator} {thr.value}")
+    
+    print(f"Regole composite caricate: {len(kb.composite_rules)}")
+    for i, rule in enumerate(kb.composite_rules, 1):
+        conds = ", ".join(f"{c[0]} {c[1]} {c[2]}" for c in rule["conditions"])
+        print(f"  {i}. {rule['name']} -> {rule['BeautyLevel'].value}"
+              f"  (se: {conds})")
+
+
+def print_rdf_file_stats(rdf_path):
+    
+    from rdflib import Graph
+    
+    g = Graph()
+    g.parse(rdf_path, format="turtle")
+    
+    print(f"\nStatistiche della KB RDF ({rdf_path}):")
+    print(f"Triple totali: {len(g)}")
+    print(f"Namespace definiti: {len(list(g.namespaces()))}")
+    
+    subject_counts = {}
+    for s, p, o in g:
+        pred_name = str(p).split('#')[-1] if '#' in str(p) else str(p)
+        subject_counts[pred_name] = subject_counts.get(pred_name, 0) + 1
+    
+    print("\nTriple per predicato (top 10):")
+    sorted_preds = sorted(subject_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    for pred, count in sorted_preds:
+        print(f"  {pred}: {count}")
+    
+    query = """
+    PREFIX ex: <http://example.org/diamonds#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    SELECT (COUNT(DISTINCT ?feature) AS ?count)
+    WHERE {
+        { ?feature a ex:DiamondFeature . }
+        UNION
+        { ?feature a ?type . ?type rdfs:subClassOf ex:DiamondFeature . }
+    }
+    """
+    results = query_rdf_kb(rdf_path, query)
+    if results and 'count' in results[0]:
+        print(f"\nFeatures definite in RDF: {results[0]['count']}")
 
 
 
@@ -641,17 +817,21 @@ def rdf_exporter_menu():
         print(f"NOTA: Creazione nuova knowledge base ({e})")
         kb = ExtendedKB()
     
+    loaded_rdf_path = None
+    loaded_kb_path = None
+    loaded_diamond_report = None
+    
     while True:
         
         print("\n" + "="*60)
         print("MENU ESPORTAZIONE RDF - CONOSCENZA SEMANTICA".center(60))
         print("="*60)
         print("\nCosa vuoi fare?")
-        print("1) Esportare KB integrata con modello ML")
+        print("1) Esportare la Knowledge Base in RDF")
         print("2) Caricare una Knowledge Base da file RDF, o un diamante")
         print("3) Generare report RDF per un diamante specifico")
         print("4) Eseguire query SPARQL sulla KB")
-        print("5) Visualizzare statistiche della KB RDF")
+        print("5) Visualizzare statistiche della KB RDF, o del diamante")
         print("\n'esc' - Torna al menu principale")
         print("\n" + "-"*60)
         
@@ -660,49 +840,26 @@ def rdf_exporter_menu():
         if choice == "1":  
             
             print("\n" + "="*60)
-            print("ESPORTAZIONE INTEGRATA ML + KB".center(60))
+            print("ESPORTAZIONE KNOWLEDGE BASE RDF".center(60))
             print("="*60)
-            
-            model_info = {}
-            
-            print("\nInserisci informazioni del modello ML:")
-            model_info['name'] = input("Nome modello [RandomForest]: ").strip() or "RandomForest"
-            model_info['description'] = input("Descrizione: ").strip() or "Modello Random Forest per classificazione diamanti"
-            
-            try:
-                from prediction import load_payload
-                payload = load_payload()
-                if 'features' in payload:
-                    model_info['features'] = payload['features']
-                    print(f"Features caricate automaticamente: {len(model_info['features'])}")
-                else:
-                    # Chiedi manualmente
-                    features_str = input("Features (separate da virgola): ").strip()
-                    model_info['features'] = [f.strip() for f in features_str.split(',')] if features_str else []
-            except:
-                features_str = input("Features (separate da virgola): ").strip()
-                model_info['features'] = [f.strip() for f in features_str.split(',')] if features_str else []
-            
-            try:
-                from preprocessing import CategoricalDataFrame
-                df = CategoricalDataFrame()
-                metrics = df.evaluate_model_performance(plot_confusion_matrix=False)
-                model_info['accuracy'] = metrics.get('accuracy', 0.0)
-                print(f"Accuracy rilevata: {model_info['accuracy']:.3f}")
-            except:
-                acc_input = input("Accuracy modello (0.0-1.0) [0.85]: ").strip()
-                model_info['accuracy'] = float(acc_input) if acc_input else 0.85
             
             base_name = input("\nBase nome file [diamonds_ai_system]: ").strip() or "diamonds_ai_system"
             
+            print("\nInformazioni della Knowledge Base:")
+            kb_metadata = {}
+            kb_metadata['title'] = input("Titolo KB [Knowledge Base per Valutazione Diamanti]: ").strip() or "Knowledge Base per Valutazione Diamanti"
+            kb_metadata['creator'] = input("Creatore KB [Sistema di Intelligenza Artificiale]: ").strip() or "Sistema di Intelligenza Artificiale"
+            kb_metadata['date'] = input("Data KB [2024]: ").strip() or "2024"
+            kb_metadata['description'] = input("Descrizione KB [Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C]: ").strip() or "Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C"
+            
             try:
-                result_path = export_kb_with_ml_integration(kb, model_info, base_name)
+                result_path = export_kb_rdf(kb, base_name, kb_metadata=kb_metadata)
                 
-                print("\nSUCCESSO: Sistema integrato esportato!")
+                print("\nSUCCESSO: Knowledge Base esportata!")
                 print(f"  File: {result_path}")
                     
             except Exception as e:
-                print(f"\nERRORE nell'esportazione integrata: {e}")
+                print(f"\nERRORE nell'esportazione: {e}")
         
         
         elif choice == "2":  
@@ -736,54 +893,31 @@ def rdf_exporter_menu():
                     
                     if is_diamond_report(rdf_path):
                         print("\nFile riconosciuto: REPORT DIAMANTE")
-                        reports = load_diamond_report_from_rdf(rdf_path)
+                        loaded_diamond_report = load_diamond_report_from_rdf(rdf_path)
+                        loaded_kb_path = None
                         
-                        if not reports:
+                        if not loaded_diamond_report:
                             print("\nNessun diamante trovato nel report")
                         else:
-                            for report in reports:
-                                print("\n" + "="*60)
-                                print("REPORT DIAMANTE".center(60))
-                                print("="*60)
-                                print(f"Diamante: {report['label']}")
-                                print(f"URI: {report['uri']}")
-                                
-                                if report['features']:
-                                    print("\nCaratteristiche:")
-                                    for feature, value in report['features'].items():
-                                        print(f"  {feature}: {value}")
-                                
-                                fuzzy = report['fuzzy_beauty_score']
-                                if fuzzy is not None:
-                                    print(f"\nFuzzy score: {fuzzy:.3f}")
-                                if report['beauty_category']:
-                                    print(f"Categoria bellezza: {report['beauty_category']}")
-                                
-                                if report['evaluations']:
-                                    print("\nValutazione soglie:")
-                                    for eval_item in report['evaluations']:
-                                        respected = eval_item['respected']
-                                        status = "OK" if respected == "True" else "NON rispettata"
-                                        print(f"  - {eval_item['feature']}: "
-                                              f"osservato={eval_item['observed']}, "
-                                              f"atteso {eval_item['expected_operator']} {eval_item['expected_value']} "
-                                              f"[{status}]")
-                                else:
-                                    print("\nNessuna valutazione soglie nel report")
+                            print(f"\nSUCCESSO: {len(loaded_diamond_report)} diamante/i caricato/i in memoria.")
+                            print("Informazioni disponibili con l'opzione 5.")
+                        loaded_rdf_path = rdf_path
+                    
                     else:
                         loaded_kb = load_kb_from_rdf(rdf_path)
+                        loaded_diamond_report = None
                         
-                        print("\nSUCCESSO: Knowledge Base caricata da RDF!")
-                        print(f"Soglie caricate: {len(loaded_kb._store)}")
-                        print(f"Regole composite: {len(loaded_kb.composite_rules)}")
+                        loaded_kb_path = rdf_path
+                        loaded_rdf_path = rdf_path
                         
                         kb = loaded_kb
                         
-                        if len(kb._store) > 0:
-                            print("\nPrime 3 regole caricate:")
-                            for i, (pos, thr) in enumerate(list(kb._store.items())[:3], 1):
-                                print(f"  {i}. {thr.feature} {thr.operator} {thr.value}")
-                    
+                        print("\nSUCCESSO: Knowledge Base caricata in memoria da RDF!")
+                        print(f"Soglie caricate: {len(kb._store)}")
+                        print(f"Regole composite: {len(kb.composite_rules)}")
+                        print("Resoconto e statistiche disponibili con l'opzione 5.")
+                        print("KB pronta: query SPARQL (opzione 4) e statistiche (opzione 5) abilitate.")
+                
                 except Exception as e:
                     print(f"\nERRORE nel caricamento: {e}")
             else:
@@ -815,7 +949,7 @@ def rdf_exporter_menu():
                     else:
                         diamond[feature] = "medium"  
             elif diamond_choice == "2":
-                diamond = random_diamond("test_output/diamond_rdf_temp.json")
+                diamond = random_diamond()
                 print("\nDiamante generato casualmente")
                 
             elif diamond_choice == "3":
@@ -863,79 +997,76 @@ def rdf_exporter_menu():
             print("QUERY SPARQL SULLA KNOWLEDGE BASE".center(60))
             print("="*60)
             
-            temp_file = "test_output/kb_temp_query.ttl"
-            save_kb_to_rdf(kb, temp_file)
-            
-            print("\nQuery predefinite disponibili:")
-            for i, (name, query) in enumerate(SPARQL_QUERIES.items(), 1):
-                print(f"  {i}) {name}")
-            
-            print("  c) Query personalizzata")
-            
-            query_choice = input("\nScelta: ").strip().lower()
-            sparql_query = ""
-            
-            if query_choice == "c":
-                print("\nInserisci la tua query SPARQL (termina con linea vuota):")
-                lines = []
-                while True:
-                    line = input("SPARQL> ")
-                    if not line:
-                        break
-                    lines.append(line)
-                sparql_query = "\n".join(lines)
-            elif query_choice.isdigit():
-                idx = int(query_choice) - 1
-                query_names = list(SPARQL_QUERIES.keys())
-                if 0 <= idx < len(query_names):
-                    query_name = query_names[idx]
-                    sparql_query = SPARQL_QUERIES[query_name]
-                    print(f"\nQuery: {query_name}")
-                else:
-                    print("Numero non valido")
-                    continue
-            else:
-                print("Scelta non valida")
+            if not loaded_kb_path:
+                print("\nERRORE: Nessuna Knowledge Base caricata in memoria.")
+                print("Usa prima l'opzione 2 per caricare una KB in memoria.")
                 continue
             
-            if sparql_query:
-                try:
-                    print("\nEsecuzione query...")
-                    results = query_rdf_kb(temp_file, sparql_query)
-                    
-                    print(f"\nRISULTATI: {len(results)} righe trovate")
-                    print("-"*60)
-                    
-                    if results:
-                        for i, row in enumerate(results[:5], 1):
-                            print(f"\nRiga {i}:")
-                            for key, value in row.items():
-                                print(f"  {key}: {value}")
-                        
-                        if len(results) > 5:
-                            print(f"\n... e altre {len(results) - 5} righe")
-                            
-                        save_res = input("\nSalvare i risultati in JSON? (s/n): ").strip().lower()
-                        if save_res == 's':
-                            json_file = input("Nome file [query_results.json]: ").strip()
-                            if not json_file:
-                                json_file = "query_results.json"
-                            
-                            output_path = os.path.join("test_output", json_file)
-                            with open(output_path, 'w', encoding='utf-8') as f:
-                                json.dump(results, f, indent=2, ensure_ascii=False)
-                            print(f"Risultati salvati in: {output_path}")
-                            
-                    else:
-                        print("Nessun risultato trovato")
-                        
-                except Exception as e:
-                    print(f"\nERRORE nell'esecuzione query: {e}")
+            print(f"\nFile interrogato: {loaded_kb_path}")
             
-            try:
-                os.remove(temp_file)
-            except:
-                pass
+            while True:
+                print("\n" + "-"*60)
+                print("Query predefinite disponibili:")
+                for i, (name, query) in enumerate(SPARQL_QUERIES.items(), 1):
+                    print(f"  {i}) {name}")
+                
+                print("  c) Query personalizzata")
+                print("  esc) Torna al menu Esportazione RDF")
+                
+                query_choice = input("\nScelta: ").strip().lower()
+                
+                if query_choice in ("esc", "q", "0", "exit"):
+                    break
+                
+                sparql_query = ""
+                
+                if query_choice == "c":
+                    print("\nInserisci la tua query SPARQL (termina con linea vuota):")
+                    lines = []
+                    while True:
+                        line = input("SPARQL> ")
+                        if not line:
+                            break
+                        lines.append(line)
+                    sparql_query = "\n".join(lines)
+                elif query_choice.isdigit():
+                    idx = int(query_choice) - 1
+                    query_names = list(SPARQL_QUERIES.keys())
+                    if 0 <= idx < len(query_names):
+                        query_name = query_names[idx]
+                        sparql_query = SPARQL_QUERIES[query_name]
+                        print(f"\nQuery: {query_name}")
+                    else:
+                        print("Numero non valido")
+                        continue
+                else:
+                    print("Scelta non valida")
+                    continue
+                
+                if sparql_query:
+                    try:
+                        print("\nEsecuzione query...")
+                        results = query_rdf_kb(loaded_kb_path, sparql_query)
+                        
+                        print(f"\nRISULTATI: {len(results)} righe trovate")
+                        print("-"*60)
+                        
+                        if results:
+                            for i, row in enumerate(results, 1):
+                                print(f"\nRiga {i}:")
+                                for key, value in row.items():
+                                    print(f"  {key}: {value}")
+                            
+                        else:
+                            print("Nessun risultato trovato")
+                            
+                    except Exception as e:
+                        print(f"\nERRORE nell'esecuzione query: {e}")
+                
+                print("\n[INVIO = nuova query | 'esc' = torna al menu Esportazione RDF]")
+                back = input("> ").strip().lower()
+                if back in ("esc", "q", "0", "exit"):
+                    break
         
         
         elif choice == "5":  
@@ -943,49 +1074,24 @@ def rdf_exporter_menu():
             print("STATISTICHE KNOWLEDGE BASE RDF".center(60))
             print("="*60)
             
-            temp_file = "test_output/kb_stats_temp.ttl"
-            save_kb_to_rdf(kb, temp_file)
+            if loaded_kb_path:
+                try:
+                    print_rdf_summary(describe_rdf(loaded_kb_path))
+                except Exception as e:
+                    print(f"\n[AVVISO] Analisi file non riuscita: {e}")
+                
+                print("\n== CONTENUTO CARICATO IN MEMORIA ==")
+                print_kb_recap(kb)
+                print_rdf_file_stats(loaded_kb_path)
             
-            try:
-                from rdflib import Graph
-                g = Graph()
-                g.parse(temp_file, format="turtle")
-                
-                print(f"\nStatistiche della Knowledge Base:")
-                print(f"Triple totali: {len(g)}")
-                print(f"Namespace definiti: {len(list(g.namespaces()))}")
-                print(f"Soglie nella KB: {len(kb._store)}")
-                print(f"Regole composite: {len(kb.composite_rules)}")
-                
-                # Conta tipi di triple
-                subject_counts = {}
-                for s, p, o in g:
-                    pred_name = str(p).split('#')[-1] if '#' in str(p) else str(p)
-                    subject_counts[pred_name] = subject_counts.get(pred_name, 0) + 1
-                
-                print("\nTriple per predicato (top 10):")
-                sorted_preds = sorted(subject_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-                for pred, count in sorted_preds:
-                    print(f"  {pred}: {count}")
-                
-                query = """
-                PREFIX ex: <http://example.org/diamonds#>
-                SELECT (COUNT(?feature) as ?count)
-                WHERE {
-                    ?feature a ex:DiamondFeature .
-                }
-                """
-                results = query_rdf_kb(temp_file, query)
-                if results and 'count' in results[0]:
-                    print(f"\nFeatures definite in RDF: {results[0]['count']}")
-                
-            except Exception as e:
-                print(f"\nERRORE nell'analisi: {e}")
+            elif loaded_diamond_report:
+                print(f"\nPercorso: {loaded_rdf_path}")
+                for report in loaded_diamond_report:
+                    print_diamond_report(report)
             
-            try:
-                os.remove(temp_file)
-            except:
-                pass
+            else:
+                print("\nNESSUN FILE RDF CARICATO IN MEMORIA")
+                print("Usa l'opzione 2 per caricare una KB o un diamante.")
         
         
         elif choice == "esc":  

@@ -1,5 +1,5 @@
-from config import RANDOM_DIAMOND, CATEGORICAL_CSV
-from typing import Tuple, Dict, Any, Optional, List
+from config import CATEGORICAL_CSV
+from typing import Dict, Any, Optional
 from preprocessing import CategoricalDataFrame
 import json
 import random
@@ -7,7 +7,7 @@ import pandas as pd
 
 
 
-def random_diamond(out_path: str = RANDOM_DIAMOND) -> Dict[str, Any]:
+def random_diamond(out_path: Optional[str] = None) -> Dict[str, Any]:
 
     df = pd.read_csv(CATEGORICAL_CSV)
     
@@ -58,14 +58,14 @@ def random_diamond(out_path: str = RANDOM_DIAMOND) -> Dict[str, Any]:
         valore = generate_casual_value(caratteristica)
         diamante_casuale[caratteristica] = valore
     
-    with open(out_path, "w", encoding="utf-8") as file_json:
-        json.dump(
-            diamante_casuale,       
-            file_json,              
-            indent=4,               
-            ensure_ascii=False      
-        )
-    
+    if out_path is not None:
+        with open(out_path, "w", encoding="utf-8") as file_json:
+            json.dump(
+                diamante_casuale,       
+                file_json,              
+                indent=4,               
+                ensure_ascii=False      
+            )
     
     return diamante_casuale
 

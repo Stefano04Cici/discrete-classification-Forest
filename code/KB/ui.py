@@ -13,6 +13,8 @@ from rdf_exporter import (
     save_kb_to_rdf,
     load_kb_from_rdf,
     generate_diamond_rdf_report,
+    is_diamond_report,
+    load_diamond_report_from_rdf,
     query_rdf_kb,
     SPARQL_QUERIES,
     export_kb_with_ml_integration
@@ -645,12 +647,11 @@ def rdf_exporter_menu():
         print("MENU ESPORTAZIONE RDF - CONOSCENZA SEMANTICA".center(60))
         print("="*60)
         print("\nCosa vuoi fare?")
-        print("1) Esportare la Knowledge Base in formato RDF/Turtle")
-        print("2) Caricare una Knowledge Base da file RDF")
+        print("1) Esportare KB integrata con modello ML")
+        print("2) Caricare una Knowledge Base da file RDF, o un diamante")
         print("3) Generare report RDF per un diamante specifico")
         print("4) Eseguire query SPARQL sulla KB")
-        print("5) Esportare KB integrata con modello ML")
-        print("6) Visualizzare statistiche della KB RDF")
+        print("5) Visualizzare statistiche della KB RDF")
         print("\n'esc' - Torna al menu principale")
         print("\n" + "-"*60)
         
@@ -659,52 +660,54 @@ def rdf_exporter_menu():
         if choice == "1":  
             
             print("\n" + "="*60)
-            print("ESPORTAZIONE KNOWLEDGE BASE IN RDF".center(60))
+            print("ESPORTAZIONE INTEGRATA ML + KB".center(60))
             print("="*60)
             
-            default_name = "diamonds_kb.ttl"
-            filename = input(f"\nNome file di output [{default_name}]: ").strip()
-            if not filename:
-                filename = default_name
+            model_info = {}
             
-            if not filename.endswith('.ttl'):
-                filename += '.ttl'
-            
-            output_path = os.path.join("test_output", filename)
+            print("\nInserisci informazioni del modello ML:")
+            model_info['name'] = input("Nome modello [RandomForest]: ").strip() or "RandomForest"
+            model_info['description'] = input("Descrizione: ").strip() or "Modello Random Forest per classificazione diamanti"
             
             try:
-                result_path = save_kb_to_rdf(kb, output_path)
+                from prediction import load_payload
+                payload = load_payload()
+                if 'features' in payload:
+                    model_info['features'] = payload['features']
+                    print(f"Features caricate automaticamente: {len(model_info['features'])}")
+                else:
+                    # Chiedi manualmente
+                    features_str = input("Features (separate da virgola): ").strip()
+                    model_info['features'] = [f.strip() for f in features_str.split(',')] if features_str else []
+            except:
+                features_str = input("Features (separate da virgola): ").strip()
+                model_info['features'] = [f.strip() for f in features_str.split(',')] if features_str else []
+            
+            try:
+                from preprocessing import CategoricalDataFrame
+                df = CategoricalDataFrame()
+                metrics = df.evaluate_model_performance(plot_confusion_matrix=False)
+                model_info['accuracy'] = metrics.get('accuracy', 0.0)
+                print(f"Accuracy rilevata: {model_info['accuracy']:.3f}")
+            except:
+                acc_input = input("Accuracy modello (0.0-1.0) [0.85]: ").strip()
+                model_info['accuracy'] = float(acc_input) if acc_input else 0.85
+            
+            base_name = input("\nBase nome file [diamonds_ai_system]: ").strip() or "diamonds_ai_system"
+            
+            try:
+                result_path = export_kb_with_ml_integration(kb, model_info, base_name)
                 
-                print(f"\nSUCCESSO: Knowledge Base esportata!")
-                print(f"File generato: {result_path}")
-                
-                from rdflib import Graph
-                g = Graph()
-                g.parse(result_path, format="turtle")
-                print(f"Numero di triple RDF: {len(g)}")
-                
-                print("\nNamespace utilizzati:")
-                for prefix, namespace in list(g.namespaces())[:5]:
-                    print(f"  {prefix}: {namespace}")
-                
-                print("\nAnteprima del file:")
-                with open(result_path, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()[:20]
-                    for line in lines:
-                        print(f"  {line.rstrip()}")
-                
-                if len(lines) >= 20:
-                    print("  ... [file più lungo]")
+                print("\nSUCCESSO: Sistema integrato esportato!")
+                print(f"  File: {result_path}")
                     
             except Exception as e:
-                print(f"\nERRORE durante l'esportazione: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"\nERRORE nell'esportazione integrata: {e}")
         
         
         elif choice == "2":  
             print("\n" + "="*60)
-            print("CARICA KNOWLEDGE BASE DA RDF".center(60))
+            print("CARICA KNOWLEDGE BASE O DIAMANTE DA RDF".center(60))
             print("="*60)
             
             print("\nFile disponibili in test_output/:")
@@ -730,18 +733,56 @@ def rdf_exporter_menu():
                         rdf_path = file_choice
                     
                     print(f"\nCaricamento da: {rdf_path}")
-                    loaded_kb = load_kb_from_rdf(rdf_path)
                     
-                    print("\nSUCCESSO: Knowledge Base caricata da RDF!")
-                    print(f"Soglie caricate: {len(loaded_kb._store)}")
-                    print(f"Regole composite: {len(loaded_kb.composite_rules)}")
-                    
-                    kb = loaded_kb
-                    
-                    if len(kb._store) > 0:
-                        print("\nPrime 3 regole caricate:")
-                        for i, (pos, thr) in enumerate(list(kb._store.items())[:3], 1):
-                            print(f"  {i}. {thr.feature} {thr.operator} {thr.value}")
+                    if is_diamond_report(rdf_path):
+                        print("\nFile riconosciuto: REPORT DIAMANTE")
+                        reports = load_diamond_report_from_rdf(rdf_path)
+                        
+                        if not reports:
+                            print("\nNessun diamante trovato nel report")
+                        else:
+                            for report in reports:
+                                print("\n" + "="*60)
+                                print("REPORT DIAMANTE".center(60))
+                                print("="*60)
+                                print(f"Diamante: {report['label']}")
+                                print(f"URI: {report['uri']}")
+                                
+                                if report['features']:
+                                    print("\nCaratteristiche:")
+                                    for feature, value in report['features'].items():
+                                        print(f"  {feature}: {value}")
+                                
+                                fuzzy = report['fuzzy_beauty_score']
+                                if fuzzy is not None:
+                                    print(f"\nFuzzy score: {fuzzy:.3f}")
+                                if report['beauty_category']:
+                                    print(f"Categoria bellezza: {report['beauty_category']}")
+                                
+                                if report['evaluations']:
+                                    print("\nValutazione soglie:")
+                                    for eval_item in report['evaluations']:
+                                        respected = eval_item['respected']
+                                        status = "OK" if respected == "True" else "NON rispettata"
+                                        print(f"  - {eval_item['feature']}: "
+                                              f"osservato={eval_item['observed']}, "
+                                              f"atteso {eval_item['expected_operator']} {eval_item['expected_value']} "
+                                              f"[{status}]")
+                                else:
+                                    print("\nNessuna valutazione soglie nel report")
+                    else:
+                        loaded_kb = load_kb_from_rdf(rdf_path)
+                        
+                        print("\nSUCCESSO: Knowledge Base caricata da RDF!")
+                        print(f"Soglie caricate: {len(loaded_kb._store)}")
+                        print(f"Regole composite: {len(loaded_kb.composite_rules)}")
+                        
+                        kb = loaded_kb
+                        
+                        if len(kb._store) > 0:
+                            print("\nPrime 3 regole caricate:")
+                            for i, (pos, thr) in enumerate(list(kb._store.items())[:3], 1):
+                                print(f"  {i}. {thr.feature} {thr.operator} {thr.value}")
                     
                 except Exception as e:
                     print(f"\nERRORE nel caricamento: {e}")
@@ -898,54 +939,6 @@ def rdf_exporter_menu():
         
         
         elif choice == "5":  
-            print("\n" + "="*60)
-            print("ESPORTAZIONE INTEGRATA ML + KB".center(60))
-            print("="*60)
-            
-            model_info = {}
-            
-            print("\nInserisci informazioni del modello ML:")
-            model_info['name'] = input("Nome modello [RandomForest]: ").strip() or "RandomForest"
-            model_info['description'] = input("Descrizione: ").strip() or "Modello Random Forest per classificazione diamanti"
-            
-            try:
-                from prediction import load_payload
-                payload = load_payload()
-                if 'features' in payload:
-                    model_info['features'] = payload['features']
-                    print(f"Features caricate automaticamente: {len(model_info['features'])}")
-                else:
-                    # Chiedi manualmente
-                    features_str = input("Features (separate da virgola): ").strip()
-                    model_info['features'] = [f.strip() for f in features_str.split(',')] if features_str else []
-            except:
-                features_str = input("Features (separate da virgola): ").strip()
-                model_info['features'] = [f.strip() for f in features_str.split(',')] if features_str else []
-            
-            try:
-                from preprocessing import CategoricalDataFrame
-                df = CategoricalDataFrame()
-                metrics = df.evaluate_model_performance(plot_confusion_matrix=False)
-                model_info['accuracy'] = metrics.get('accuracy', 0.0)
-                print(f"Accuracy rilevata: {model_info['accuracy']:.3f}")
-            except:
-                acc_input = input("Accuracy modello (0.0-1.0) [0.85]: ").strip()
-                model_info['accuracy'] = float(acc_input) if acc_input else 0.85
-            
-            base_name = input("\nBase nome file [diamonds_ai_system]: ").strip() or "diamonds_ai_system"
-            
-            try:
-                files = export_kb_with_ml_integration(kb, model_info, base_name)
-                
-                print("\nSUCCESSO: Sistema integrato esportato!")
-                for key, path in files.items():
-                    print(f"  {key}: {path}")
-                    
-            except Exception as e:
-                print(f"\nERRORE nell'esportazione integrata: {e}")
-        
-        
-        elif choice == "6":  
             print("\n" + "="*60)
             print("STATISTICHE KNOWLEDGE BASE RDF".center(60))
             print("="*60)

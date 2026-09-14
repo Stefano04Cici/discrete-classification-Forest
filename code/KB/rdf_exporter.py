@@ -3,8 +3,9 @@ from typing import Dict, Any, List, Tuple, Optional
 import json
 from pathlib import Path
 import re
+import os
 from rdflib import Graph, Namespace, Literal, RDF, RDFS, XSD, URIRef, BNode
-from config import MINIKB_PATH, EXKB_PATH
+from config import MINIKB_PATH, EXKB_PATH, TEST_OUTPUT_DIR
 from threshold_system import ExtendedKB, MiniKB, BeautyLevel, Threshold
 
 
@@ -321,6 +322,61 @@ def generate_diamond_rdf_report(
     return output_path
 
 
+def is_diamond_report(rdf_path: str) -> bool:
+    
+    g = Graph()
+    g.parse(rdf_path, format="turtle")
+    
+    return (None, RDF.type, EX.Diamond) in g
+
+
+def load_diamond_report_from_rdf(rdf_path: str) -> List[Dict[str, Any]]:
+    
+    g = Graph()
+    g.parse(rdf_path, format="turtle")
+    
+    reports = []
+    for diamond_uri, _, _ in g.triples((None, RDF.type, EX.Diamond)):
+        report = {"uri": str(diamond_uri)}
+        
+        label = next(g.objects(diamond_uri, RDFS.label), None)
+        report["label"] = str(label) if label is not None else None
+        
+        fuzzy = next(g.objects(diamond_uri, EX.fuzzyBeautyScore), None)
+        report["fuzzy_beauty_score"] = float(fuzzy) if fuzzy is not None else None
+        
+        category = next(g.objects(diamond_uri, EX.beautyCategory), None)
+        report["beauty_category"] = str(category) if category is not None else None
+        
+        features = {}
+        for feature_uri in g.objects(diamond_uri, EX.hasFeature):
+            feature_name = str(feature_uri).split("#")[-1]
+            value = next(g.objects(feature_uri, EX.featureValue), None)
+            features[feature_name] = str(value) if value is not None else None
+        report["features"] = features
+        
+        evaluations = []
+        for eval_uri in g.objects(diamond_uri, EX.hasThresholdEvaluation):
+            applied = list(g.objects(eval_uri, EX.appliesToFeature))
+            observed = next(g.objects(eval_uri, EX.observedValue), None)
+            expected_op = next(g.objects(eval_uri, EX.expectedOperator), None)
+            expected_val = next(g.objects(eval_uri, EX.expectedValue), None)
+            respected = next(g.objects(eval_uri, EX.thresholdRespected), None)
+            
+            evaluations.append({
+                "feature": str(applied[0]).split("#")[-1] if applied else "?",
+                "observed": str(observed) if observed is not None else None,
+                "expected_operator": str(expected_op) if expected_op is not None else None,
+                "expected_value": str(expected_val) if expected_val is not None else None,
+                "respected": str(respected) if respected is not None else None,
+            })
+        report["evaluations"] = evaluations
+        
+        reports.append(report)
+    
+    return reports
+
+
 def query_rdf_kb(
     rdf_path: str,
     sparql_query: str,
@@ -451,47 +507,34 @@ def export_kb_with_ml_integration(
     kb: ExtendedKB,
     model_info: Dict[str, Any],
     output_base: str = "diamonds_integrated"
-) -> Dict[str, str]:
+) -> str:
     
-    kb_ttl = f"{output_base}_kb.ttl"
-    model_ttl = f"{output_base}_model.ttl"
-    integrated_ttl = f"{output_base}_integrated.ttl"
+    os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
     
-    save_kb_to_rdf(kb, kb_ttl)
+    integrated_ttl = os.path.join(TEST_OUTPUT_DIR, f"{output_base}_integrated.ttl")
     
-    g_model = Graph()
-    g_model.bind("ex", EX)
-    g_model.bind("schema", SCHEMA)
-    g_model.bind("dc", DC)
+    g = kb_to_rdf(kb)
+    g.bind("schema", SCHEMA)
+    g.bind("dc", DC)
     
     model_uri = EX[f"model_{slugify(model_info.get('name', 'random_forest'))}"]
-    g_model.add((model_uri, RDF.type, SCHEMA.SoftwareApplication))
-    g_model.add((model_uri, DC.title, Literal("Modello ML per valutazione diamanti")))
-    g_model.add((model_uri, DC.description, Literal(model_info.get('description', ''))))
+    g.add((model_uri, RDF.type, SCHEMA.SoftwareApplication))
+    g.add((model_uri, DC.title, Literal("Modello ML per valutazione diamanti")))
+    g.add((model_uri, DC.description, Literal(model_info.get('description', ''))))
     
     if 'accuracy' in model_info:
-        g_model.add((model_uri, EX.modelAccuracy, 
+        g.add((model_uri, EX.modelAccuracy, 
                     Literal(model_info['accuracy'], datatype=XSD.float)))
     if 'features' in model_info:
         for feature in model_info['features']:
-            g_model.add((model_uri, EX.usesFeature, EX[feature]))
+            g.add((model_uri, EX.usesFeature, EX[feature]))
     
-    g_model.serialize(destination=model_ttl, format="turtle")
-    
-    g_kb = Graph()
-    g_kb.parse(kb_ttl, format="turtle")
-    
-    g_kb += g_model  
     kb_uri = EX["DiamondsKnowledgeBase"]
-    g_kb.add((kb_uri, EX.complementsMLModel, model_uri))
-    g_kb.add((model_uri, EX.complementsKnowledgeBase, kb_uri))
+    g.add((kb_uri, EX.complementsMLModel, model_uri))
+    g.add((model_uri, EX.complementsKnowledgeBase, kb_uri))
     
-    g_kb.serialize(destination=integrated_ttl, format="turtle")
+    g.serialize(destination=integrated_ttl, format="turtle")
     
     print(f"[RDF] Sistema integrato esportato in: {integrated_ttl}")
     
-    return {
-        'kb': kb_ttl,
-        'model': model_ttl,
-        'integrated': integrated_ttl
-    }
+    return integrated_ttl

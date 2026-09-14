@@ -332,7 +332,39 @@ class MiniKB:
             score = fuzzy_evaluate(str(val), thr.value, thr.operator)
             scores.append(score)
         
-        return float(np.mean(scores)) if scores else 0.0
+        simple_score = float(np.mean(scores)) if scores else 0.0
+
+        if hasattr(self, 'composite_rules') and self.composite_rules:
+            composite_scores: List[float] = []
+            beauty_weights = {
+                BeautyLevel.HIGH: 1.0,
+                BeautyLevel.MEDIUM: 0.7,
+                BeautyLevel.LOW: 0.4
+            }
+            
+            for rule in self.composite_rules:
+                condition_scores: List[float] = []
+                all_conditions_valid = True
+                
+                for feature, operator, value in rule["conditions"]:
+                    if feature not in diamond or diamond[feature] is None:
+                        all_conditions_valid = False
+                        break
+                    cond_score = fuzzy_evaluate(
+                        str(diamond[feature]), str(value), operator
+                    )
+                    condition_scores.append(cond_score)
+                
+                if all_conditions_valid and condition_scores:
+                    rule_score = float(np.mean(condition_scores))
+                    weight = beauty_weights.get(rule["BeautyLevel"], 0.5)
+                    composite_scores.append(rule_score * weight)
+            
+            if composite_scores:
+                composite_avg = float(np.mean(composite_scores))
+                simple_score = 0.6 * simple_score + 0.4 * composite_avg
+        
+        return simple_score
 
 
     def save_to_json(self) -> None:

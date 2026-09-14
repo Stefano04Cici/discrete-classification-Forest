@@ -586,7 +586,7 @@ def threshold_menu():
             rules = kb.query()
             
             if len(rules) > 0:
-                print(f"\nTrovate {len(rules)} regole:")
+                print(f"\nTrovate {len(rules)} regole semplici:")
                 print("-"*60)
                 
                 for idx, (_, rule) in enumerate(rules.iterrows(), 1):
@@ -596,7 +596,21 @@ def threshold_menu():
                     print(f"   Livello: {rule['level']}")
                     print(f"   Descrizione: {rule['description']}")
             else:
-                print("\nNOTA: Nessuna regola trovata nella knowledge base")
+                print("\nNOTA: Nessuna regola semplice trovata nella knowledge base")
+
+            if hasattr(kb, 'composite_rules') and len(kb.composite_rules) > 0:
+                print(f"\nTrovate {len(kb.composite_rules)} regole composite:")
+                print("-"*60)
+                
+                for idx, rule in enumerate(kb.composite_rules, 1):
+                    conds = " AND ".join(
+                        f"{c[0]} {c[1]} {c[2]}" for c in rule["conditions"]
+                    )
+                    print(f"\n{idx}. {rule['name']}")
+                    print(f"   Condizioni: {conds}")
+                    print(f"   BeautyLevel: {rule['BeautyLevel'].value}")
+            elif hasattr(kb, 'composite_rules'):
+                print("\nNOTA: Nessuna regola composta trovata nella knowledge base")
         
         elif choice == "4":  
             

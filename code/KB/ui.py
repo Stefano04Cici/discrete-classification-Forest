@@ -255,43 +255,17 @@ def prevision_menu():
                     else:
                         print("   ERRORE: Valore non valido. Riprova.")
             
-            print("\n" + "-"*60)
-            print("MODALITÀ DI PREDIZIONE")
-            print("-"*60)
-            print("Scegli come il modello deve decidere:")
-            print("1) argmax (default per multiclasse - sceglie la classe con probabilità più alta)")
-            print("2) Soglia fissa (specifica un valore tra 0 e 1)")
-            
-            mode_choice = input("Scelta (1 o 2): ").strip()
-            
-            if mode_choice == "2":
-                while True:
-                    try:
-                        threshold = float(input("Inserisci soglia (0.0 - 1.0): "))
-                        if 0 <= threshold <= 1:
-                            thr_mode = "fixed"
-                            thr_value = threshold
-                            break
-                        else:
-                            print("ERRORE: La soglia deve essere tra 0 e 1")
-                    except ValueError:
-                        print("ERRORE: Inserisci un numero valido")
-            else:
-                thr_mode = "argmax"
-                thr_value = None
-            
             print("\n" + "="*60)
             print("RISULTATO DELLA PREDIZIONE".center(60))
             print("="*60)
             
             try:
-                result = predict_diamond(diamond, thr_mode=thr_mode, thr_value=thr_value)
+                result = predict_diamond(diamond, thr_mode="argmax")
                 
                 if isinstance(result[0], str):  
-                    predicted_class, probability, threshold_used, mode_used = result
+                    predicted_class, probability, _, _ = result
                     print(f"\nCLASSE PREDETTA: {predicted_class}")
                     print(f"PROBABILITÀ: {probability:.2%}")
-                    print(f"STRATEGIA: {mode_used}")
                     
                     if predicted_class == "low":
                         print("INTERPRETAZIONE: Diamante economico - buon rapporto qualità/prezzo")
@@ -301,17 +275,15 @@ def prevision_menu():
                         print("INTERPRETAZIONE: Diamante di alto valore - qualità premium")
                         
                 else:  
-                    predicted_label, probability, threshold_used, mode_used = result
+                    predicted_label, probability, _, _ = result
                     class_name = "costoso" if predicted_label == 1 else "economico"
                     print(f"\nCLASSE PREDETTA: {class_name} ({predicted_label})")
                     print(f"PROBABILITÀ: {probability:.2%}")
-                    print(f"SOGLIA USATA: {threshold_used:.3f}")
-                    print(f"MODALITÀ: {mode_used}")
                 
                 last_tested_diamond = {
                     'diamond': diamond,
                     'result': result,
-                    'mode': mode_used
+                    'mode': "argmax"
                 }
                 
             except Exception as e:
@@ -335,31 +307,6 @@ def prevision_menu():
                 except ValueError:
                     print("ERRORE: Inserisci un numero valido")
             
-            print("\n" + "-"*60)
-            print("MODALITÀ DI PREDIZIONE")
-            print("-"*60)
-            print("Scegli come il modello deve decidere:")
-            print("1) argmax (default per multiclasse)")
-            print("2) Soglia fissa (specifica un valore tra 0 e 1)")
-            
-            mode_choice = input("Scelta (1 o 2): ").strip()
-            
-            if mode_choice == "2":
-                while True:
-                    try:
-                        threshold = float(input("Inserisci soglia (0.0 - 1.0): "))
-                        if 0 <= threshold <= 1:
-                            thr_mode = "fixed"
-                            thr_value = threshold
-                            break
-                        else:
-                            print("ERRORE: La soglia deve essere tra 0 e 1")
-                    except ValueError:
-                        print("ERRORE: Inserisci un numero valido")
-            else:
-                thr_mode = "argmax"
-                thr_value = None
-            
             print("\n" + "="*60)
             print("DIAMANTI GENERATI E PREDIZIONI".center(60))
             print("="*60)
@@ -375,14 +322,14 @@ def prevision_menu():
                     print(f"  {feature}: {value}")
                 
                 try:
-                    result = predict_diamond(diamond, thr_mode=thr_mode, thr_value=thr_value)
+                    result = predict_diamond(diamond, thr_mode="argmax")
                     
                     if isinstance(result[0], str):  
-                        predicted_class, probability, _, mode_used = result
+                        predicted_class, probability, _, _ = result
                         print(f"\n  Prezzo predetto: {predicted_class}")
                         print(f"  Probabilità: {probability:.2%}")
                     else:  # Binario
-                        predicted_label, probability, threshold_used, mode_used = result
+                        predicted_label, probability, _, _ = result
                         class_name = "costoso" if predicted_label == 1 else "economico"
                         print(f"\n  Prezzo predetto: {class_name}")
                         print(f"  Probabilità: {probability:.2%}")
@@ -390,7 +337,7 @@ def prevision_menu():
                     last_tested_diamond = {
                         'diamond': diamond,
                         'result': result,
-                        'mode': mode_used
+                        'mode': "argmax"
                     }
                 
                 except Exception as e:
@@ -407,6 +354,11 @@ def prevision_menu():
             
             file_path = input("\nInserisci il nome del file JSON: ").strip()
             
+            if file_path and not os.path.isabs(file_path) and os.path.dirname(file_path) == "":
+                if not file_path.endswith(".json"):
+                    file_path += ".json"
+                file_path = os.path.join("test_output", file_path)
+            
             if os.path.exists(file_path):
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
@@ -417,16 +369,11 @@ def prevision_menu():
                     for feature, value in diamond.items():
                         print(f"  {feature}: {value}")
                     
-                    print("\n" + "-"*60)
-                    print("MODALITÀ DI PREDIZIONE")
-                    thr_mode = "argmax"
-                    thr_value = None
-                    
                     print("\n" + "="*60)
                     print("RISULTATO DELLA PREDIZIONE".center(60))
                     print("="*60)
                     
-                    result = predict_diamond(diamond, thr_mode=thr_mode, thr_value=thr_value)
+                    result = predict_diamond(diamond, thr_mode="argmax")
                     
                     if isinstance(result[0], str):
                         predicted_class, probability, _, _ = result
@@ -441,13 +388,19 @@ def prevision_menu():
                     last_tested_diamond = {
                         'diamond': diamond,
                         'result': result,
-                        'mode': thr_mode
+                        'mode': "argmax"
                     }
                     
                 except Exception as e:
                     print(f"\nERRORE nel caricamento del file: {e}")
             else:
                 print(f"\nERRORE: File non trovato: {file_path}")
+                if os.path.isdir("test_output"):
+                    names = sorted(f for f in os.listdir("test_output") if f.endswith('.json'))
+                    if names:
+                        print("\nFile .json disponibili in test_output/:")
+                        for i, name in enumerate(names, 1):
+                            print(f"  {i}) {name}")
         
         
         elif choice == "salva":  

@@ -388,3 +388,4 @@ $RECYCLE.BIN/
 *.pyc
 *.json
 diamonds_categorical.csv
+*.ttl

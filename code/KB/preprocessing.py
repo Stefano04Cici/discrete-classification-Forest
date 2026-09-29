@@ -13,7 +13,14 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, learning_curve
+from sklearn.model_selection import (
+    train_test_split,
+    cross_val_score,
+    cross_validate,
+    cross_val_predict,
+    StratifiedKFold,
+    learning_curve,
+)
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.ensemble import RandomForestClassifier
 from typing import Tuple, Dict, Any, Optional, List
@@ -24,10 +31,6 @@ from collections import Counter
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import make_scorer
-from sklearn.metrics import roc_auc_score        
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, learning_curve
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import (
     accuracy_score,
@@ -42,6 +45,24 @@ from sklearn.metrics import (
 )
 
 from examples_csv_to_prolog import execute_insert_facts 
+
+# Scorers usati dalla cross validation (F1 macro = media non pesata sulle classi,
+# coerente con le metriche riportate nella classification report)
+F1_MACRO_SCORER = make_scorer(f1_score, average="macro", zero_division=0)
+
+CV_SCORING = {
+    "roc_auc_ovo": "roc_auc_ovo",
+    "f1_macro": F1_MACRO_SCORER,
+    "accuracy": "accuracy",
+}
+
+
+def fmt(value, digits: int = 3) -> str:
+    """Formatta una metrica opzionale, mostrando 'n/d' se non disponibile."""
+    if value is None:
+        return "n/d"
+    return f"{value:.{digits}f}"
+
 
 class CategoricalDataFrame(pd.DataFrame):
 
@@ -154,9 +175,10 @@ class CategoricalDataFrame(pd.DataFrame):
             
             def cramers_v(x, y):
                 confusion_matrix = pd.crosstab(x, y)
-                chi2 = chi2_contingency(confusion_matrix)[0]
+                chi2_result = chi2_contingency(confusion_matrix)
+                chi2_stat = float(np.asarray(chi2_result[0], dtype=float).item())
                 n = confusion_matrix.sum().sum()
-                phi2 = chi2 / n
+                phi2 = chi2_stat / n
                 r, k = confusion_matrix.shape
                 phi2corr = max(0, phi2 - ((k-1)*(r-1))/(n-1))
                 rcorr = r - ((r-1)**2)/(n-1)
@@ -315,13 +337,25 @@ class CategoricalDataFrame(pd.DataFrame):
 
 
 
-    def plot_reliability_diagram(self, model_path: str = MODEL_PATH):
+    def plot_reliability_diagram(self, model_path: str = MODEL_PATH,
+                                 mode: str = "oof"):
+        """Curva di calibrazione e Brier score su predizioni fuori campione.
+
+        mode="oof"  -> out-of-fold via cross_val_predict (usa tutti i dati,
+                      accurato ma costa ~CV_SPLITS addestramenti)
+        mode="test" -> sul test set holdout salvato nel modello (gratis, ma
+                      con pochi campioni la curva e' rumorosa)
+        """
         import matplotlib.pyplot as plt
         from sklearn.calibration import calibration_curve
+        
+        if mode not in ("oof", "test"):
+            raise ValueError(f"mode non valido: {mode!r}. Usa 'oof' o 'test'.")
         
         payload = joblib.load(model_path)
         model = payload["model"]
         le = payload.get("label_encoder")
+        test_data = payload.get("test_data")
         
         pre, selector, target, feats = self.build_preprocessor()
         X, y = self[feats], self[target]
@@ -331,46 +365,65 @@ class CategoricalDataFrame(pd.DataFrame):
             y_encoded = le.fit_transform(y)
         else:
             y_encoded = le.transform(y)
+        y_encoded = np.asarray(y_encoded).ravel()
         
-        if hasattr(model, 'predict_proba'):
-            y_proba = model.predict_proba(X)
-            
-            n_classes = len(le.classes_)
-            
-            fig, axes = plt.subplots(1, n_classes, figsize=(5*n_classes, 5))
-            if n_classes == 1:
-                axes = [axes]
-            
-            for i, (cls_name, ax) in enumerate(zip(le.classes_, axes)):
-                prob_true, prob_pred = calibration_curve(
-                    y_encoded == i, 
-                    y_proba[:, i], 
-                    n_bins=10,
-                    strategy='uniform'
-                )
-                
-                ax.plot(prob_pred, prob_true, marker='o', linewidth=1, label=f'Classe {cls_name}')
-                ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfettamente calibrato')
-                ax.set_xlabel('Probabilità predetta')
-                ax.set_ylabel('Frazione osservata')
-                ax.set_title(f'Reliability Plot - Classe {cls_name}')
-                ax.legend()
-                ax.grid(True, alpha=0.3)
-            
-            plt.tight_layout()
-            plt.show()
-            
-            from sklearn.metrics import brier_score_loss
-            brier_scores = []
-            for i in range(n_classes):
-                brier = brier_score_loss(y_encoded == i, y_proba[:, i])
-                brier_scores.append((le.classes_[i], brier))
-                print(f"Brier score per classe {le.classes_[i]}: {brier:.4f}")
-            
-            return brier_scores
-        else:
+        if not hasattr(model, 'predict_proba'):
             print("Il modello non supporta predict_proba()")
             return None
+        
+        if mode == "oof":
+            min_count = int(np.min(np.bincount(y_encoded.astype(int))))
+            n_splits = min(CV_SPLITS, min_count)
+            if n_splits < 2:
+                mode = "test"
+            else:
+                cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+                y_proba = cross_val_predict(
+                    model, X, y_encoded, cv=cv, method="predict_proba", n_jobs=-1
+                )
+                y_true_cal = y_encoded
+        
+        if mode != "oof":
+            if test_data is None:
+                print("✗ Nessun test set salvato nel modello. "
+                      "Ri-addestrare il modello oppure usare mode='test'.")
+                return None
+            y_true_cal = np.asarray(test_data["y_test"]).ravel()
+            y_proba = model.predict_proba(test_data["X_test"])
+        
+        n_classes = len(le.classes_)
+        
+        fig, axes = plt.subplots(1, n_classes, figsize=(5*n_classes, 5))
+        if n_classes == 1:
+            axes = [axes]
+        
+        for i, (cls_name, ax) in enumerate(zip(le.classes_, axes)):
+            prob_true, prob_pred = calibration_curve(
+                y_true_cal == i, 
+                y_proba[:, i], 
+                n_bins=10,
+                strategy='uniform'
+            )
+            
+            ax.plot(prob_pred, prob_true, marker='o', linewidth=1, label=f'Classe {cls_name}')
+            ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfettamente calibrato')
+            ax.set_xlabel('Probabilità predetta')
+            ax.set_ylabel('Frazione osservata')
+            ax.set_title(f'Reliability Plot - Classe {cls_name}')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.show()
+        
+        from sklearn.metrics import brier_score_loss
+        brier_scores = []
+        for i in range(n_classes):
+            brier = brier_score_loss(y_true_cal == i, y_proba[:, i])
+            brier_scores.append((le.classes_[i], brier))
+            print(f"Brier score per classe {le.classes_[i]}: {brier:.4f}")
+        
+        return brier_scores
 
 
 
@@ -463,6 +516,13 @@ class CategoricalDataFrame(pd.DataFrame):
                 "X_train_shape": X_train.shape,
                 "X_test_shape": X_test.shape,
                 "random_state": 42
+            },
+            # Il test set viene persistito: senza di esso le uniche metriche
+            # calcolabili su dati mai visti dal modello andrebbero perse.
+            "test_data": {
+                "X_test": X_test,
+                "y_test": y_test,
+                "features": feats,
             }
         }
         
@@ -559,6 +619,7 @@ class CategoricalDataFrame(pd.DataFrame):
             le = payload.get("label_encoder")
             features = payload.get("features")
             class_names = payload.get("class_names", ["low", "medium", "high"])
+            test_data = payload.get("test_data")
             
             print(f"✓ Modello caricato da: {model_path}")
             print(f"✓ Classi: {class_names}")
@@ -595,94 +656,181 @@ class CategoricalDataFrame(pd.DataFrame):
             class_distribution_list = list(class_distribution)
         
         print(f"✓ Distribuzione classi: {class_distribution_list}")
-        print(f"✓ Valutazione su: TUTTO il dataset ({len(self)} campioni)")
         
         metrics = {}
+        cv = StratifiedKFold(n_splits=CV_SPLITS, shuffle=True, random_state=42)
         
+        # ------------------------------------------------------------------
+        # 1) CROSS VALIDATION - metriche oneste su tutto il dataset.
+        #    cross_validate rifitta il modello su 4/5 dei dati e valuta sul
+        #    1/5 mai visto, quindi nessun campione è valutato su dati che il
+        #    modello di quel fold ha già visto.
+        # ------------------------------------------------------------------
         if hasattr(model, 'predict_proba'):
-            cv = StratifiedKFold(n_splits=CV_SPLITS, shuffle=True, random_state=42)
-            
             try:
-                cv_scores = cross_val_score(model, X, y, cv=cv, 
-                                          scoring='roc_auc_ovo', n_jobs=-1)
+                cv_results = cross_validate(
+                    model, X, y, cv=cv, scoring=CV_SCORING, n_jobs=-1
+                )
                 
-                metrics['cv_roc_auc_mean'] = float(cv_scores.mean())
-                metrics['cv_roc_auc_std'] = float(cv_scores.std())
+                for name in CV_SCORING:
+                    scores = cv_results[f"test_{name}"]
+                    metrics[f'cv_{name}_mean'] = float(np.mean(scores))
+                    metrics[f'cv_{name}_std'] = float(np.std(scores))
                 
-                print(f"\n{' Cross-Validation ROC-AUC ':-^60}")
-                print(f"Media (CV={CV_SPLITS}): {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
+                print(f"\n{' CROSS-VALIDATION ':-^60}")
+                print(f"ROC-AUC OVO: {metrics['cv_roc_auc_ovo_mean']:.3f} "
+                      f"± {metrics['cv_roc_auc_ovo_std']:.3f}")
+                print(f"F1 macro:    {metrics['cv_f1_macro_mean']:.3f} "
+                      f"± {metrics['cv_f1_macro_std']:.3f}")
+                print(f"Accuracy:    {metrics['cv_accuracy_mean']:.3f} "
+                      f"± {metrics['cv_accuracy_std']:.3f}")
                 
-            except Exception as e:
-                print(f"⚠ Cross-validation non disponibile: {e}")
-                metrics['cv_roc_auc_mean'] = None
-                metrics['cv_roc_auc_std'] = None
+            except (ValueError, IndexError) as e:
+                print(f"\n⚠ Cross-validation non disponibile: {e}")
+                for name in CV_SCORING:
+                    metrics[f'cv_{name}_mean'] = None
+                    metrics[f'cv_{name}_std'] = None
         
-        y_pred = model.predict(X)
-        y_proba = model.predict_proba(X) if hasattr(model, 'predict_proba') else None
-        
-        metrics['accuracy'] = float(accuracy_score(y, y_pred))
-        metrics['f1_macro'] = float(f1_score(y, y_pred, average='macro', zero_division=0))
-        metrics['f1_weighted'] = float(f1_score(y, y_pred, average='weighted', zero_division=0))
-        
-        if y_proba is not None:
-            try:
-                metrics['roc_auc_ovo'] = float(roc_auc_score(y, y_proba, multi_class='ovo', average='macro'))
-                metrics['roc_auc_ovr'] = float(roc_auc_score(y, y_proba, multi_class='ovr', average='macro'))
-            except:
-                metrics['roc_auc_ovo'] = None
-                metrics['roc_auc_ovr'] = None
-        
-        print(f"\n{' Metriche Complete (su tutto il dataset) ':-^60}")
-        print(f"Accuracy:           {metrics['accuracy']:.3f}")
-        print(f"F1-score (macro):   {metrics['f1_macro']:.3f}")
-        print(f"F1-score (weighted):{metrics['f1_weighted']:.3f}")
-        
-        if metrics.get('roc_auc_ovo') is not None:
-            print(f"ROC-AUC OVO (macro): {metrics['roc_auc_ovo']:.3f}")
-            print(f"ROC-AUC OVR (macro): {metrics['roc_auc_ovr']:.3f}")
-        
-        print(f"\n{' Classification Report (su tutto il dataset) ':-^60}")
-        y_original = le.inverse_transform(y)
-        y_pred_original = le.inverse_transform(y_pred)
-        
-        print(classification_report(y_original, y_pred_original, 
-                                    target_names=class_names, digits=3))
-        
-        if plot_confusion_matrix:
-            print(f"\n{' Matrice di Confusione (su tutto il dataset) ':-^60}")
+        # ------------------------------------------------------------------
+        # 2) TEST SET HOLDOUT - la valutazione principale.
+        #    Il modello è stato addestrato solo su X_train, quindi X_test
+        #    non è mai stato visto: è l'unica stima non in-sample.
+        # ------------------------------------------------------------------
+        if test_data is not None:
+            X_test = test_data["X_test"]
+            y_test = np.asarray(test_data["y_test"]).ravel()
             
-            cm = confusion_matrix(y, y_pred)
+            print(f"\n{' TEST SET HOLDOUT ':-^60}")
             
-            fig, ax = plt.subplots(figsize=(8, 6))
-            disp = ConfusionMatrixDisplay(
-                confusion_matrix=cm,
-                display_labels=class_names
+            y_pred_test = model.predict(X_test)
+            y_proba_test = model.predict_proba(X_test) if hasattr(model, 'predict_proba') else None
+            
+            metrics['test_n_samples'] = int(X_test.shape[0])
+            metrics['test_accuracy'] = float(accuracy_score(y_test, y_pred_test))
+            metrics['test_f1_macro'] = float(
+                f1_score(y_test, y_pred_test, average='macro', zero_division=0)
             )
-            disp.plot(ax=ax, cmap='Blues', values_format='d', colorbar=True)
-            ax.set_title(f"Matrice di Confusione - Tutto il Dataset (n={len(self)})")
+            metrics['test_f1_weighted'] = float(
+                f1_score(y_test, y_pred_test, average='weighted', zero_division=0)
+            )
             
-            accuracy = accuracy_score(y, y_pred)
-            ax.text(0.5, -0.15, f"Accuracy: {accuracy:.3f} | Campioni: {len(self)}", 
-                    transform=ax.transAxes, ha='center', fontsize=10)
+            print(f"Accuracy:           {metrics['test_accuracy']:.3f}")
+            print(f"F1-score (macro):   {metrics['test_f1_macro']:.3f}")
+            print(f"F1-score (weighted):{metrics['test_f1_weighted']:.3f}")
             
-            plt.tight_layout()
-            plt.show()
+            if y_proba_test is not None:
+                try:
+                    metrics['test_roc_auc_ovo'] = float(
+                        roc_auc_score(y_test, y_proba_test, multi_class='ovo', average='macro')
+                    )
+                    metrics['test_roc_auc_ovr'] = float(
+                        roc_auc_score(y_test, y_proba_test, multi_class='ovr', average='macro')
+                    )
+                    print(f"ROC-AUC OVO (macro): {metrics['test_roc_auc_ovo']:.3f}")
+                    print(f"ROC-AUC OVR (macro): {metrics['test_roc_auc_ovr']:.3f}")
+                except (ValueError, IndexError):
+                    metrics['test_roc_auc_ovo'] = None
+                    metrics['test_roc_auc_ovr'] = None
             
-            print("\nMatrice di confusione (valori assoluti):")
+            print(f"\n{' Classification Report ':-^60}")
+            print(classification_report(
+                le.inverse_transform(y_test),
+                le.inverse_transform(y_pred_test),
+                target_names=class_names, digits=3
+            ))
+        else:
+            print("\n⚠ Nessun test set nel modello: metriche holdout non disponibili.")
+            print("  (ri-addestrare il modello per generarlo)")
+            y_test = y_pred_test = None
+            metrics['test_n_samples'] = None
+        
+        # ------------------------------------------------------------------
+        # 3) IN-SAMPLE - declassate con prefisso 'insample_'.
+        #    Servono solo come confronto: il modello ha già memorizzato
+        #    questi dati, quindi non sono una stima di generalizzazione.
+        # ------------------------------------------------------------------
+        y_pred_insample = model.predict(X)
+        y_proba_insample = model.predict_proba(X) if hasattr(model, 'predict_proba') else None
+        
+        metrics['insample_accuracy'] = float(accuracy_score(y, y_pred_insample))
+        metrics['insample_f1_macro'] = float(
+            f1_score(y, y_pred_insample, average='macro', zero_division=0)
+        )
+        metrics['insample_f1_weighted'] = float(
+            f1_score(y, y_pred_insample, average='weighted', zero_division=0)
+        )
+        
+        if y_proba_insample is not None:
+            try:
+                metrics['insample_roc_auc_ovo'] = float(
+                    roc_auc_score(y, y_proba_insample, multi_class='ovo', average='macro')
+                )
+                metrics['insample_roc_auc_ovr'] = float(
+                    roc_auc_score(y, y_proba_insample, multi_class='ovr', average='macro')
+                )
+            except (ValueError, IndexError):
+                metrics['insample_roc_auc_ovo'] = None
+                metrics['insample_roc_auc_ovr'] = None
+        
+        print(f"\n{' CONFRONTO ':-^60}")
+        print(f"{'':22}{'CV':>10}{'TEST':>12}{'insample':>14}")
+        print("-" * 58)
+        print(f"{'Accuracy':22}"
+              f"{fmt(metrics.get('cv_accuracy_mean')):>10}"
+              f"{fmt(metrics.get('test_accuracy')):>12}"
+              f"{metrics['insample_accuracy']:>14.3f}")
+        print(f"{'F1 macro':22}"
+              f"{fmt(metrics.get('cv_f1_macro_mean')):>10}"
+              f"{fmt(metrics.get('test_f1_macro')):>12}"
+              f"{metrics['insample_f1_macro']:>14.3f}")
+        if metrics.get('test_roc_auc_ovo') is not None:
+            print(f"{'ROC-AUC OVO':22}"
+                  f"{fmt(metrics.get('cv_roc_auc_ovo_mean')):>10}"
+                  f"{metrics['test_roc_auc_ovo']:>12.3f}"
+                  f"{fmt(metrics.get('insample_roc_auc_ovo')):>14}")
+        
+        # Matrice di confusione e accuratezza per classe: sul test set
+        if y_test is not None and y_pred_test is not None:
+            cm = confusion_matrix(y_test, y_pred_test)
+            metrics['confusion_matrix'] = cm.tolist()
+            
+            if plot_confusion_matrix:
+                print(f"\n{' Matrice di Confusione ':-^60}")
+                
+                fig, ax = plt.subplots(figsize=(8, 6))
+                disp = ConfusionMatrixDisplay(
+                    confusion_matrix=cm,
+                    display_labels=class_names
+                )
+                disp.plot(ax=ax, cmap='Blues', values_format='d', colorbar=True)
+                ax.set_title(f"Matrice di Confusione (n={len(y_test)})")
+                
+                ax.text(0.5, -0.15,
+                        f"Accuracy: {metrics['test_accuracy']:.3f} | "
+                        f"Campioni: {len(y_test)}",
+                        transform=ax.transAxes, ha='center', fontsize=10)
+                
+                plt.tight_layout()
+                plt.show()
+            else:
+                print("\n⚠ Matrice di confusione non visualizzata "
+                      "(plot_confusion_matrix=False)")
+            
+            print("\nMatrice di confusione:")
             cm_df = pd.DataFrame(cm, index=class_names, columns=class_names)
             print(cm_df.to_string())
             
             print("\nAccuratezza per classe:")
+            per_class = {}
             for i, class_name in enumerate(class_names):
-                class_accuracy = cm[i, i] / cm[i].sum() if cm[i].sum() > 0 else 0
-                print(f"  {class_name}: {class_accuracy:.3f} ({cm[i, i]}/{cm[i].sum()})")
-            
-            metrics['confusion_matrix'] = cm.tolist()
+                total = cm[i].sum() if i < len(cm) else 0
+                acc = cm[i, i] / total if total > 0 else 0
+                per_class[class_name] = float(acc)
+                print(f"  {class_name}: {acc:.3f} ({cm[i, i]}/{total})")
+            metrics['test_per_class_accuracy'] = per_class
             metrics['confusion_matrix_df'] = cm_df.to_dict()
         else:
-            cm = confusion_matrix(y, y_pred)
-            metrics['confusion_matrix'] = cm.tolist()
-            print("\n⚠ Matrice di confusione non visualizzata (plot_confusion_matrix=False)")
+            metrics['confusion_matrix'] = None
         
         metrics['model_path'] = model_path
         metrics['dataset_size'] = len(self)
@@ -690,13 +838,13 @@ class CategoricalDataFrame(pd.DataFrame):
         metrics['n_classes'] = len(class_names)
         metrics['class_names'] = class_names
         metrics['class_distribution'] = class_distribution_list
-        metrics['evaluation_strategy'] = "full_dataset"
+        metrics['evaluation_strategy'] = "train_test_split"
         metrics['plot_confusion_matrix'] = plot_confusion_matrix
         
         print(f"\n{' Valutazione completata ':-^60}")
         print(f"Dataset: {metrics['dataset_size']} campioni, {metrics['n_features']} feature")
         print(f"Classi: {len(class_names)} ({', '.join(class_names)})")
-        print(f"Strategia: Valutazione su tutto il dataset")
+        print(f"Strategia: holdout test set ({metrics['test_n_samples']} campioni)")
         print(f"Matrice di confusione visualizzata: {'Sì' if plot_confusion_matrix else 'No'}")
         
         return metrics

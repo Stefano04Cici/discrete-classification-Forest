@@ -2,6 +2,7 @@ from pathlib import Path as PathlibPath
 from matplotlib.path import Path
 import pandas as pd
 import numpy as np
+import gc
 import os
 import joblib
 import matplotlib.pyplot as plt
@@ -62,6 +63,51 @@ def fmt(value, digits: int = 3) -> str:
     if value is None:
         return "n/d"
     return f"{value:.{digits}f}"
+
+
+def _close_figure() -> None:
+    """Chiude la figura e libera subito le risorse Tk sul main thread.
+
+    plt.close() da solo NON basta: le PhotoImage e le Variable di tkinter
+    restano appese in cicli di riferimenti e sopravvivono alla chiusura della
+    finestra. Le finalizza il GC ciclico, e quel GC puo' scattare dentro il
+    thread di joblib che smista i risultati (cross_validate, model.predict):
+    li' Tk e' threaded, il chiamante non e' il thread dell'interprete, e
+    _tkinter solleva "RuntimeError: main thread is not in main loop" dopo
+    un secondo di attesa. Forzando qui la raccolta, tutto si chiude sul
+    main thread, dove tk.call funziona.
+    """
+    plt.close("all")
+    gc.collect()
+
+
+def safe_cv_splits(y, model, max_splits: int = CV_SPLITS) -> int:
+    """Quanti fold esterni sono utilizzabili per una valutazione out-of-fold.
+
+    Un classificatore calibrato (CalibratedClassifierCV) ha una CV *interna*
+    che gira sui dati di addestramento di ogni fold esterno. Contare le classi
+    sul dataset intero non basta: la classe piu' rare che *resta* nel training
+    di un fold deve soddisfare anche quel vincolo, altrimenti sklearn solleva
+    "Requesting N-fold cross-validation but provided less than N examples".
+
+    Restituisce 0 quando i dati non bastano: in quel caso conviene il test set
+    holdout, che non richiede alcun ri-addestramento.
+    """
+    y_arr = np.asarray(y).ravel().astype(int)
+    if y_arr.size == 0:
+        return 0
+    min_count = int(np.min(np.bincount(y_arr)))
+
+    inner_cv = getattr(model, "cv", 0)
+    if not isinstance(inner_cv, (int, np.integer)) or isinstance(inner_cv, bool):
+        inner_cv = 2   # LeaveOneOut / "prefit": non predicabile, si resta prudenti
+
+    for n in range(min(max_splits, min_count), 1, -1):
+        # StratifiedKFold toglie dalla classe rara al massimo ceil(min_count / n)
+        held_out = -(-min_count // n)
+        if min_count - held_out >= inner_cv:
+            return n
+    return 0
 
 
 class CategoricalDataFrame(pd.DataFrame):
@@ -163,6 +209,7 @@ class CategoricalDataFrame(pd.DataFrame):
             plt.xticks(rotation=45)
             plt.tight_layout()
             plt.show()
+            _close_figure()
         else:
             print(f"Colonna target '{target}' non trovata")
 
@@ -204,6 +251,7 @@ class CategoricalDataFrame(pd.DataFrame):
             plt.title("Matrice di Associazione (Cramér's V)")
             plt.tight_layout()
             plt.show()
+            _close_figure()
         
             print("Matrice Cramér's V (valori più alti indicano associazione più forte):")
             print(cramers_matrix.round(3))
@@ -258,6 +306,7 @@ class CategoricalDataFrame(pd.DataFrame):
 
             plt.tight_layout()
             plt.show()
+            _close_figure()
 
         print("\n=== ANALISI DISTRIBUZIONI DETTAGLIATE ===")
     
@@ -284,6 +333,7 @@ class CategoricalDataFrame(pd.DataFrame):
                     plt.title(f"Distribuzione {target} per {var} (%)")
                     plt.tight_layout()
                     plt.show()
+                    _close_figure()
 
 
 
@@ -372,8 +422,7 @@ class CategoricalDataFrame(pd.DataFrame):
             return None
         
         if mode == "oof":
-            min_count = int(np.min(np.bincount(y_encoded.astype(int))))
-            n_splits = min(CV_SPLITS, min_count)
+            n_splits = safe_cv_splits(y_encoded, model)
             if n_splits < 2:
                 mode = "test"
             else:
@@ -391,7 +440,10 @@ class CategoricalDataFrame(pd.DataFrame):
             y_true_cal = np.asarray(test_data["y_test"]).ravel()
             y_proba = model.predict_proba(test_data["X_test"])
         
-        n_classes = len(le.classes_)
+        # Se una classe e' assente dai dati di addestramento il modello ha
+        # predict_proba con meno colonne: non esiste una colonna su cui plottare.
+        n_proba = np.asarray(y_proba).shape[1]
+        n_classes = min(len(le.classes_), n_proba)
         
         fig, axes = plt.subplots(1, n_classes, figsize=(5*n_classes, 5))
         if n_classes == 1:
@@ -415,6 +467,7 @@ class CategoricalDataFrame(pd.DataFrame):
         
         plt.tight_layout()
         plt.show()
+        _close_figure()
         
         from sklearn.metrics import brier_score_loss
         brier_scores = []
@@ -481,7 +534,14 @@ class CategoricalDataFrame(pd.DataFrame):
             desired_cv = 3
             cal_method = "isotonic"
         
-        cal_cv = min(desired_cv, max(2, min_class_count))
+        # min_class_count e' calcolato sul dataset intero e serve a decidere lo
+        # stratify, che agisce su tutti i dati: li' il conteggio e' corretto.
+        # Per i fold della calibrazione conta invece la classe rare che resta
+        # nel training, che e' solo l'80% del dataset.
+        min_train_count = min(Counter(np.asarray(y_train).ravel().tolist()).values())
+        # cal_cv = 0 -> non si puo' calibrare (una classe ha un solo campione
+        # nel training): si addestra la pipeline nuda invece di far crashare.
+        cal_cv = min(desired_cv, min_train_count) if min_train_count >= 2 else 0
         
         clf = RandomForestClassifier(
             n_estimators=n_estimators,
@@ -495,11 +555,20 @@ class CategoricalDataFrame(pd.DataFrame):
         
         pipe = Pipeline([("pre", pre), ("sel", selector), ("clf", clf)])
         
-        cal = CalibratedClassifierCV(estimator=pipe, method=cal_method, cv=cal_cv)
+        if cal_cv >= 2:
+            cal = CalibratedClassifierCV(estimator=pipe, method=cal_method, cv=cal_cv)
+            print(f"Addestramento del modello in corso... (n_estimators={n_estimators}, max_depth={max_depth}, calibrazione={cal_method} cv={cal_cv})")
+        else:
+            cal = pipe
+            print(f"Addestramento del modello in corso... (n_estimators={n_estimators}, max_depth={max_depth})")
+            print("⚠ Classe con un solo campione nel training: calibrazione saltata.")
         
-        print(f"Addestramento del modello in corso... (n_estimators={n_estimators}, max_depth={max_depth}, calibrazione={cal_method} cv={cal_cv})")
         cal.fit(X_train, y_train)
-        print(f"✓ Modello addestrato con calibrazione ({cal_method}, cv={cal_cv})")
+        
+        if cal_cv >= 2:
+            print(f"✓ Modello addestrato con calibrazione ({cal_method}, cv={cal_cv})")
+        else:
+            print("✓ Modello addestrato")
         
         payload = {
             "model": cal,
@@ -508,8 +577,8 @@ class CategoricalDataFrame(pd.DataFrame):
                 "classes": class_names.tolist()
             },
             "features": feats,
-            "calibrated": True,
-            "calibration": {"method": cal_method},
+            "calibrated": cal_cv >= 2,
+            "calibration": {"method": cal_method if cal_cv >= 2 else None},
             "label_encoder": le,
             "class_names": class_names.tolist(),
             "train_test_split": {
@@ -602,6 +671,7 @@ class CategoricalDataFrame(pd.DataFrame):
         plt.tight_layout()
         
         plt.show()
+        _close_figure()
     
     
   
@@ -658,7 +728,9 @@ class CategoricalDataFrame(pd.DataFrame):
         print(f"✓ Distribuzione classi: {class_distribution_list}")
         
         metrics = {}
-        cv = StratifiedKFold(n_splits=CV_SPLITS, shuffle=True, random_state=42)
+        n_splits = safe_cv_splits(y, model)
+        cv = (StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+              if n_splits >= 2 else None)
         
         # ------------------------------------------------------------------
         # 1) CROSS VALIDATION - metriche oneste su tutto il dataset.
@@ -666,10 +738,18 @@ class CategoricalDataFrame(pd.DataFrame):
         #    1/5 mai visto, quindi nessun campione è valutato su dati che il
         #    modello di quel fold ha già visto.
         # ------------------------------------------------------------------
-        if hasattr(model, 'predict_proba'):
+        if cv is None:
+            for name in CV_SCORING:
+                metrics[f'cv_{name}_mean'] = None
+                metrics[f'cv_{name}_std'] = None
+        elif hasattr(model, 'predict_proba'):
             try:
+                # error_score="raise": un fold che fallisce deve diventare
+                # un'eccezione, non un NaN che sipropaga nella media in
+                # silenzio e verrebbe stampato come "nan".
                 cv_results = cross_validate(
-                    model, X, y, cv=cv, scoring=CV_SCORING, n_jobs=-1
+                    model, X, y, cv=cv, scoring=CV_SCORING, n_jobs=-1,
+                    error_score="raise",
                 )
                 
                 for name in CV_SCORING:
@@ -812,6 +892,7 @@ class CategoricalDataFrame(pd.DataFrame):
                 
                 plt.tight_layout()
                 plt.show()
+                _close_figure()
             else:
                 print("\n⚠ Matrice di confusione non visualizzata "
                       "(plot_confusion_matrix=False)")

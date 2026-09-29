@@ -140,6 +140,7 @@ class MiniKB:
         
         self._store: Dict[int,Threshold] = {}
         self.position = 0
+        self.composite_rules: List[Dict[str, Any]] = []
         self.populate_default_thresholds()
         
     

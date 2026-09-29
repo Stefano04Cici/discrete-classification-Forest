@@ -357,13 +357,13 @@ def load_diamond_report_from_rdf(rdf_path: str) -> List[Dict[str, Any]]:
     
     reports = []
     for diamond_uri, _, _ in g.triples((None, RDF.type, EX.Diamond)):
-        report = {"uri": str(diamond_uri)}
+        report: Dict[str, Any] = {"uri": str(diamond_uri)}
         
         label = next(g.objects(diamond_uri, RDFS.label), None)
         report["label"] = str(label) if label is not None else None
         
         fuzzy = next(g.objects(diamond_uri, EX.fuzzyBeautyScore), None)
-        report["fuzzy_beauty_score"] = float(fuzzy) if fuzzy is not None else None
+        report["fuzzy_beauty_score"] = float(str(fuzzy)) if fuzzy is not None else None
         
         category = next(g.objects(diamond_uri, EX.beautyCategory), None)
         report["beauty_category"] = str(category) if category is not None else None
@@ -383,12 +383,19 @@ def load_diamond_report_from_rdf(rdf_path: str) -> List[Dict[str, Any]]:
             expected_val = next(g.objects(eval_uri, EX.expectedValue), None)
             respected = next(g.objects(eval_uri, EX.thresholdRespected), None)
             
+            if respected is not None and isinstance(respected, Literal):
+                respected_value = respected.value
+            elif respected is not None:
+                respected_value = str(respected).lower() == "true"
+            else:
+                respected_value = None
+
             evaluations.append({
                 "feature": str(applied[0]).split("#")[-1] if applied else "?",
                 "observed": str(observed) if observed is not None else None,
                 "expected_operator": str(expected_op) if expected_op is not None else None,
                 "expected_value": str(expected_val) if expected_val is not None else None,
-                "respected": respected.toPython() if respected is not None else None,
+                "respected": respected_value,
             })
         report["evaluations"] = evaluations
         

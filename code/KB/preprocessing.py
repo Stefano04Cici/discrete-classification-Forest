@@ -45,7 +45,7 @@ from sklearn.metrics import (
     recall_score,
 )
 
-from examples_csv_to_prolog import execute_insert_facts 
+from examples_csv_to_prolog import execute_insert_facts, delete_facts
 
 # Scorers usati dalla cross validation (F1 macro = media non pesata sulle classi,
 # coerente con le metriche riportate nella classification report)
@@ -597,6 +597,12 @@ class CategoricalDataFrame(pd.DataFrame):
         
         joblib.dump(payload, model_path)
         print(f"✓ Modello salvato in: {model_path}")
+
+        # I fatti Prolog servono solo a costruire il DataFrame: ora che il
+        # modello e' persistito occupano disco senza piu' servire.
+        removed = delete_facts()
+        if removed:
+            print(f"✓ Rimossi {removed} fatti da {os.path.basename(PROLOG_FILE)}")
                                          
    
  

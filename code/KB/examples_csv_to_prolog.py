@@ -58,6 +58,30 @@ def insert_facts(prolog_path, facts_block):
         f.write("\n".join(new_lines) + "\n")
 
 
+def delete_facts(prolog_path: str = PROLOG_FILE) -> int:
+    if not os.path.exists(prolog_path):
+        return 0
+
+    with open(prolog_path, "r", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+
+    start_idx = next((i for i, l in enumerate(lines) if l.strip() == START_MARKER), None)
+    end_idx = next((i for i, l in enumerate(lines) if l.strip() == END_MARKER), None)
+
+    # Blocco assente o incoerente: non si scrive nulla, cosi' le regole
+    # restano al sicuro anche se i marker sono andati persi.
+    if start_idx is None or end_idx is None or end_idx <= start_idx:
+        return 0
+
+    removed = sum(1 for l in lines[start_idx + 1:end_idx] if l.strip())
+    new_lines = lines[:start_idx + 1] + lines[end_idx:]
+
+    with open(prolog_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(new_lines) + "\n")
+
+    return removed
+
+
 def execute_insert_facts(num_diamonds: int=500) -> None:
     with open(CSV_FILE, "r", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))

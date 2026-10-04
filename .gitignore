@@ -389,3 +389,5 @@ $RECYCLE.BIN/
 *.json
 diamonds_categorical.csv
 *.ttl
+*.joblib
+*.h5

@@ -59,11 +59,5 @@ prop(Diamond, price_class, Class) :-
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% GENERATED FACTS BELOW THIS LINE %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
 % ===== GENERATED FACTS START =====
 % ===== GENERATED FACTS END =====

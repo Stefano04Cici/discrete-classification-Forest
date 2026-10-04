@@ -392,3 +392,5 @@ diamonds_categorical.csv
 *.joblib
 *.h5*.joblib
 code/test_output/*.joblib
+*.jar
+*bfg.jar/*

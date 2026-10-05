@@ -47,8 +47,6 @@ from sklearn.metrics import (
 
 from examples_csv_to_prolog import execute_insert_facts, delete_facts
 
-# Scorers usati dalla cross validation (F1 macro = media non pesata sulle classi,
-# coerente con le metriche riportate nella classification report)
 F1_MACRO_SCORER = make_scorer(f1_score, average="macro", zero_division=0)
 
 CV_SCORING = {
@@ -59,40 +57,17 @@ CV_SCORING = {
 
 
 def fmt(value, digits: int = 3) -> str:
-    """Formatta una metrica opzionale, mostrando 'n/d' se non disponibile."""
     if value is None:
         return "n/d"
     return f"{value:.{digits}f}"
 
 
 def _close_figure() -> None:
-    """Chiude la figura e libera subito le risorse Tk sul main thread.
-
-    plt.close() da solo NON basta: le PhotoImage e le Variable di tkinter
-    restano appese in cicli di riferimenti e sopravvivono alla chiusura della
-    finestra. Le finalizza il GC ciclico, e quel GC puo' scattare dentro il
-    thread di joblib che smista i risultati (cross_validate, model.predict):
-    li' Tk e' threaded, il chiamante non e' il thread dell'interprete, e
-    _tkinter solleva "RuntimeError: main thread is not in main loop" dopo
-    un secondo di attesa. Forzando qui la raccolta, tutto si chiude sul
-    main thread, dove tk.call funziona.
-    """
     plt.close("all")
     gc.collect()
 
 
 def safe_cv_splits(y, model, max_splits: int = CV_SPLITS) -> int:
-    """Quanti fold esterni sono utilizzabili per una valutazione out-of-fold.
-
-    Un classificatore calibrato (CalibratedClassifierCV) ha una CV *interna*
-    che gira sui dati di addestramento di ogni fold esterno. Contare le classi
-    sul dataset intero non basta: la classe piu' rare che *resta* nel training
-    di un fold deve soddisfare anche quel vincolo, altrimenti sklearn solleva
-    "Requesting N-fold cross-validation but provided less than N examples".
-
-    Restituisce 0 quando i dati non bastano: in quel caso conviene il test set
-    holdout, che non richiede alcun ri-addestramento.
-    """
     y_arr = np.asarray(y).ravel().astype(int)
     if y_arr.size == 0:
         return 0
@@ -100,10 +75,9 @@ def safe_cv_splits(y, model, max_splits: int = CV_SPLITS) -> int:
 
     inner_cv = getattr(model, "cv", 0)
     if not isinstance(inner_cv, (int, np.integer)) or isinstance(inner_cv, bool):
-        inner_cv = 2   # LeaveOneOut / "prefit": non predicabile, si resta prudenti
-
+        inner_cv = 2   
+        
     for n in range(min(max_splits, min_count), 1, -1):
-        # StratifiedKFold toglie dalla classe rara al massimo ceil(min_count / n)
         held_out = -(-min_count // n)
         if min_count - held_out >= inner_cv:
             return n
@@ -389,13 +363,7 @@ class CategoricalDataFrame(pd.DataFrame):
 
     def plot_reliability_diagram(self, model_path: str = MODEL_PATH,
                                  mode: str = "oof"):
-        """Curva di calibrazione e Brier score su predizioni fuori campione.
-
-        mode="oof"  -> out-of-fold via cross_val_predict (usa tutti i dati,
-                      accurato ma costa ~CV_SPLITS addestramenti)
-        mode="test" -> sul test set holdout salvato nel modello (gratis, ma
-                      con pochi campioni la curva e' rumorosa)
-        """
+        
         import matplotlib.pyplot as plt
         from sklearn.calibration import calibration_curve
         
@@ -440,8 +408,6 @@ class CategoricalDataFrame(pd.DataFrame):
             y_true_cal = np.asarray(test_data["y_test"]).ravel()
             y_proba = model.predict_proba(test_data["X_test"])
         
-        # Se una classe e' assente dai dati di addestramento il modello ha
-        # predict_proba con meno colonne: non esiste una colonna su cui plottare.
         n_proba = np.asarray(y_proba).shape[1]
         n_classes = min(len(le.classes_), n_proba)
         
@@ -534,13 +500,7 @@ class CategoricalDataFrame(pd.DataFrame):
             desired_cv = 3
             cal_method = "isotonic"
         
-        # min_class_count e' calcolato sul dataset intero e serve a decidere lo
-        # stratify, che agisce su tutti i dati: li' il conteggio e' corretto.
-        # Per i fold della calibrazione conta invece la classe rare che resta
-        # nel training, che e' solo l'80% del dataset.
         min_train_count = min(Counter(np.asarray(y_train).ravel().tolist()).values())
-        # cal_cv = 0 -> non si puo' calibrare (una classe ha un solo campione
-        # nel training): si addestra la pipeline nuda invece di far crashare.
         cal_cv = min(desired_cv, min_train_count) if min_train_count >= 2 else 0
         
         clf = RandomForestClassifier(
@@ -586,8 +546,7 @@ class CategoricalDataFrame(pd.DataFrame):
                 "X_test_shape": X_test.shape,
                 "random_state": 42
             },
-            # Il test set viene persistito: senza di esso le uniche metriche
-            # calcolabili su dati mai visti dal modello andrebbero perse.
+            
             "test_data": {
                 "X_test": X_test,
                 "y_test": y_test,
@@ -597,9 +556,7 @@ class CategoricalDataFrame(pd.DataFrame):
         
         joblib.dump(payload, model_path)
         print(f"✓ Modello salvato in: {model_path}")
-
-        # I fatti Prolog servono solo a costruire il DataFrame: ora che il
-        # modello e' persistito occupano disco senza piu' servire.
+        
         removed = delete_facts()
         if removed:
             print(f"✓ Rimossi {removed} fatti da {os.path.basename(PROLOG_FILE)}")
@@ -738,21 +695,13 @@ class CategoricalDataFrame(pd.DataFrame):
         cv = (StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
               if n_splits >= 2 else None)
         
-        # ------------------------------------------------------------------
-        # 1) CROSS VALIDATION - metriche oneste su tutto il dataset.
-        #    cross_validate rifitta il modello su 4/5 dei dati e valuta sul
-        #    1/5 mai visto, quindi nessun campione è valutato su dati che il
-        #    modello di quel fold ha già visto.
-        # ------------------------------------------------------------------
         if cv is None:
             for name in CV_SCORING:
                 metrics[f'cv_{name}_mean'] = None
                 metrics[f'cv_{name}_std'] = None
         elif hasattr(model, 'predict_proba'):
             try:
-                # error_score="raise": un fold che fallisce deve diventare
-                # un'eccezione, non un NaN che sipropaga nella media in
-                # silenzio e verrebbe stampato come "nan".
+                
                 cv_results = cross_validate(
                     model, X, y, cv=cv, scoring=CV_SCORING, n_jobs=-1,
                     error_score="raise",
@@ -777,11 +726,6 @@ class CategoricalDataFrame(pd.DataFrame):
                     metrics[f'cv_{name}_mean'] = None
                     metrics[f'cv_{name}_std'] = None
         
-        # ------------------------------------------------------------------
-        # 2) TEST SET HOLDOUT - la valutazione principale.
-        #    Il modello è stato addestrato solo su X_train, quindi X_test
-        #    non è mai stato visto: è l'unica stima non in-sample.
-        # ------------------------------------------------------------------
         if test_data is not None:
             X_test = test_data["X_test"]
             y_test = np.asarray(test_data["y_test"]).ravel()
@@ -830,11 +774,6 @@ class CategoricalDataFrame(pd.DataFrame):
             y_test = y_pred_test = None
             metrics['test_n_samples'] = None
         
-        # ------------------------------------------------------------------
-        # 3) IN-SAMPLE - declassate con prefisso 'insample_'.
-        #    Servono solo come confronto: il modello ha già memorizzato
-        #    questi dati, quindi non sono una stima di generalizzazione.
-        # ------------------------------------------------------------------
         y_pred_insample = model.predict(X)
         y_proba_insample = model.predict_proba(X) if hasattr(model, 'predict_proba') else None
         

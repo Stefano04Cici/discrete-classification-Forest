@@ -28,95 +28,95 @@ last_tested_diamond = None
 
 def print_rdf_summary(info):
     
-    tipo_map = {
-        "diamond": "REPORT DIAMANTE",
-        "integrated": "KNOWLEDGE BASE INTEGRATA CON MODELLO ML",
+    type_map = {
+        "diamond": "DIAMOND REPORT",
+        "integrated": "KNOWLEDGE BASE INTEGRATED WITH ML MODEL",
         "kb": "KNOWLEDGE BASE"
     }
     
     print("\n" + "="*60)
-    print("RESOCONTO FILE RDF".center(60))
+    print("RDF FILE SUMMARY".center(60))
     print("="*60)
-    print(f"  Percorso: {info.get('path')}")
-    print(f"  Triplette: {info.get('triples')}")
-    print(f"  Tipo: {tipo_map.get(info.get('type'), info.get('type'))}")
+    print(f"  Path: {info.get('path')}")
+    print(f"  Triples: {info.get('triples')}")
+    print(f"  Type: {type_map.get(info.get('type'), info.get('type'))}")
     
     if info.get('beauty_levels'):
-        print("\n== LIVELLI DI BELLEZZA ==")
+        print("\n== BEAUTY LEVELS ==")
         for lv in info['beauty_levels']:
             print(f"  * {lv['label']}" + (f" ({lv['appreciation']})" if lv.get('appreciation') else ""))
     
     if info.get('models'):
         for m in info['models']:
-            print("\n== MODELLO ML ==")
-            print(f"  Nome: {m['name']}")
+            print("\n== ML MODEL ==")
+            print(f"  Name: {m['name']}")
             if m['title']:
-                print(f"  Titolo: {m['title']}")
+                print(f"  Title: {m['title']}")
             if m['description']:
-                print(f"  Descrizione: {m['description']}")
+                print(f"  Description: {m['description']}")
             acc = m['accuracy']
             if isinstance(acc, float):
                 print(f"  Accuracy: {acc:.3f}")
             elif acc is not None:
                 print(f"  Accuracy: {acc}")
             if m['features']:
-                print(f"  Feature usate ({len(m['features'])}): {', '.join(m['features'])}")
+                print(f"  Features used ({len(m['features'])}): {', '.join(m['features'])}")
             if m['kb']:
-                print(f"  Collegata a KB: {', '.join(m['kb'])}")
+                print(f"  Linked to KB: {', '.join(m['kb'])}")
     elif info.get('type') == 'integrated':
-        print("\n== MODELLO ML == (nessun modello rilevato)")
+        print("\n== ML MODEL == (no model detected)")
     
     kb = info.get('kb')
     if kb:
         print("\n== KNOWLEDGE BASE ==")
-        print(f"  Titolo: {kb.get('title')}")
+        print(f"  Title: {kb.get('title')}")
         if kb.get('creator'):
-            print(f"  Creatore: {kb['creator']}")
+            print(f"  Creator: {kb['creator']}")
         if kb.get('date'):
-            print(f"  Data: {kb['date']}")
+            print(f"  Date: {kb['date']}")
         if kb.get('description'):
-            print(f"  Descrizione: {kb['description']}")
+            print(f"  Description: {kb['description']}")
         if kb.get('num_thresholds') is not None:
-            print(f"  Soglie dichiarate: {kb['num_thresholds']}")
+            print(f"  Declared thresholds: {kb['num_thresholds']}")
         if kb.get('num_composite_rules') is not None:
-            print(f"  Regole composite dichiarate: {kb['num_composite_rules']}")
+            print(f"  Declared composite rules: {kb['num_composite_rules']}")
         if kb.get('models'):
-            print(f"  Completata da modello/i: {', '.join(kb['models'])}")
+            print(f"  Completed by model/s: {', '.join(kb['models'])}")
     
     if info.get('features'):
-        print("\n== CARATTERISTICHE ==")
+        print("\n== FEATURES ==")
         for f in info['features']:
-            dettagli = []
+            details = []
             if f['types']:
-                dettagli.append("tipo " + ", ".join(f['types']))
+                details.append("type " + ", ".join(f['types']))
             if f['category']:
-                dettagli.append(f"categoria {f['category']}")
+                details.append(f"category {f['category']}")
             if f['unit']:
-                dettagli.append(f"unità {f['unit']}")
+                details.append(f"unit {f['unit']}")
             
             header = f"  - {f['name']}"
-            if dettagli:
-                header += "  (" + ", ".join(dettagli) + ")"
+            if details:
+                header += "  (" + ", ".join(details) + ")"
             print(header)
             
             if f['thresholds']:
                 for t in f['thresholds']:
                     level = f" [{t['level']}]" if t['level'] else ""
-                    riga = f"      · {t['operator']} {t['value']}{level}"
+                    row = f"      · {t['operator']} {t['value']}{level}"
                     if t['description']:
-                        riga += f" — {t['description']}"
-                    print(riga)
+                        row += f" — {t['description']}"
+                    print(row)
             else:
-                print("      · nessuna soglia definita")
+                print("      · no threshold defined")
     
     if info.get('rules'):
-        print("\n== REGOLE COMPOSITE ==")
+        print("\n== COMPOSITE RULES ==")
         for r in info['rules']:
             print(f"  * {r['name']} -> {r['level']}")
             for c in r['conditions']:
-                print(f"      se {c['feature']} {c['operator']} {c['value']}")
+                print(f"      if {c['feature']} {c['operator']} {c['value']}")
     else:
-        print("\n== REGOLE COMPOSITE == (nessuna)")
+        print("\n== COMPOSITE RULES == (none)")
     
     print("\n" + "="*60)
 
@@ -124,13 +124,13 @@ def print_rdf_summary(info):
 def print_diamond_report(report):
     
     print("\n" + "="*60)
-    print("REPORT DIAMANTE".center(60))
+    print("DIAMOND REPORT".center(60))
     print("="*60)
-    print(f"Diamante: {report['label']}")
+    print(f"Diamond: {report['label']}")
     print(f"URI: {report['uri']}")
     
     if report['features']:
-        print("\nCaratteristiche:")
+        print("\nFeatures:")
         for feature, value in report['features'].items():
             print(f"  {feature}: {value}")
     
@@ -138,32 +138,32 @@ def print_diamond_report(report):
     if fuzzy is not None:
         print(f"\nFuzzy score: {fuzzy:.3f}")
     if report['beauty_category']:
-        print(f"Categoria bellezza: {report['beauty_category']}")
+        print(f"Beauty category: {report['beauty_category']}")
     
     if report['evaluations']:
-        print("\nValutazione soglie:")
+        print("\nThreshold evaluation:")
         for eval_item in report['evaluations']:
             respected = eval_item['respected']
-            status = "OK" if str(respected).lower() == "true" else "NON rispettata"
+            status = "OK" if str(respected).lower() == "true" else "NOT respected"
             print(f"  - {eval_item['feature']}: "
-                  f"osservato={eval_item['observed']}, "
-                  f"atteso {eval_item['expected_operator']} {eval_item['expected_value']} "
+                  f"observed={eval_item['observed']}, "
+                  f"expected {eval_item['expected_operator']} {eval_item['expected_value']} "
                   f"[{status}]")
     else:
-        print("\nNessuna valutazione soglie nel report")
+        print("\nNo threshold evaluation in the report")
 
 
 def print_kb_recap(kb):
     
-    print(f"Soglie caricate: {len(kb._store)}")
+    print(f"Thresholds loaded: {len(kb._store)}")
     for i, (pos, thr) in enumerate(kb._store.items(), 1):
         print(f"  {i}. {thr.feature} {thr.operator} {thr.value}")
     
-    print(f"Regole composite caricate: {len(kb.composite_rules)}")
+    print(f"Composite rules loaded: {len(kb.composite_rules)}")
     for i, rule in enumerate(kb.composite_rules, 1):
         conds = ", ".join(f"{c[0]} {c[1]} {c[2]}" for c in rule["conditions"])
         print(f"  {i}. {rule['name']} -> {rule['BeautyLevel'].value}"
-              f"  (se: {conds})")
+              f"  (if: {conds})")
 
 
 def print_rdf_file_stats(rdf_path):
@@ -173,16 +173,16 @@ def print_rdf_file_stats(rdf_path):
     g = Graph()
     g.parse(rdf_path, format="turtle")
     
-    print(f"\nStatistiche della KB RDF ({rdf_path}):")
-    print(f"Triple totali: {len(g)}")
-    print(f"Namespace definiti: {len(list(g.namespaces()))}")
+    print(f"\nRDF KB statistics ({rdf_path}):")
+    print(f"Total triples: {len(g)}")
+    print(f"Defined namespaces: {len(list(g.namespaces()))}")
     
     subject_counts = {}
     for s, p, o in g:
         pred_name = str(p).split('#')[-1] if '#' in str(p) else str(p)
         subject_counts[pred_name] = subject_counts.get(pred_name, 0) + 1
     
-    print("\nTriple per predicato (top 10):")
+    print("\nTriples per predicate (top 10):")
     sorted_preds = sorted(subject_counts.items(), key=lambda x: x[1], reverse=True)[:10]
     for pred, count in sorted_preds:
         print(f"  {pred}: {count}")
@@ -199,33 +199,33 @@ def print_rdf_file_stats(rdf_path):
     """
     results = query_rdf_kb(rdf_path, query)
     if results and 'count' in results[0]:
-        print(f"\nFeatures definite in RDF: {results[0]['count']}")
+        print(f"\nFeatures defined in RDF: {results[0]['count']}")
 
 
 
 
-def prevision_menu():
+def prediction_menu():
     
     global last_tested_diamond
     
     while True:
 
         print("\n" + "="*60)
-        print("MENU PREVISIONI - TEST DEL MODELLO AI".center(60))
+        print("PREDICTIONS MENU - AI MODEL TEST".center(60))
         print("="*60)
-        print("\nCosa vuoi fare?")
-        print("1) Inserire MANUALMENTE le caratteristiche di un diamante")
-        print("2) Generare un diamante CASUALE per il test")
-        print("3) Caricare un diamante da file JSON")
-        print("\n'salva' - Salva l'ultimo diamante testato")
-        print("'esc'   - Torna al menu principale")
+        print("\nWhat do you want to do?")
+        print("1) Enter MANUALLY the features of a diamond")
+        print("2) Generate a RANDOM diamond for the test")
+        print("3) Load a diamond from a JSON file")
+        print("\n'save' - Saves the last tested diamond")
+        print("'esc'   - Returns to the main menu")
         print("\n" + "-"*60)
         
         choice = input(">>\t").strip().lower()
         
         if choice == "1":  
             print("\n" + "="*60)
-            print("INSERIMENTO MANUALE DIAMANTE".center(60))
+            print("MANUAL DIAMOND ENTRY".center(60))
             print("="*60)
             
             diamond = {}
@@ -234,29 +234,29 @@ def prevision_menu():
             
             for feature in features:
                 while True:
-                    print(f"\nCaratteristica: {feature}")
+                    print(f"\nFeature: {feature}")
                     
                     if feature == 'carat':
-                        print("   Valori possibili: low, medium, high")
+                        print("   Possible values: low, medium, high")
                     elif feature == 'cut':
-                        print("   Valori possibili: fair, good, very_good, premium, ideal")
+                        print("   Possible values: fair, good, very_good, premium, ideal")
                     elif feature == 'color':
-                        print("   Valori possibili: d, e, f, g, h, i, j (d=migliore, j=peggiore)")
+                        print("   Possible values: d, e, f, g, h, i, j (d=best, j=worst)")
                     elif feature == 'clarity':
-                        print("   Valori possibili: i1, si2, si1, vs2, vs1, vvs2, vvs1, if (if=migliore)")
+                        print("   Possible values: i1, si2, si1, vs2, vs1, vvs2, vvs1, if (if=best)")
                     elif feature in ['depth', 'table', 'x', 'y', 'z']:
-                        print("   Valori possibili: low, medium, high")
+                        print("   Possible values: low, medium, high")
                     
-                    value = input(f"   Inserisci valore per {feature}: ").strip().lower()
+                    value = input(f"   Enter value for {feature}: ").strip().lower()
                     
                     if value:  
                         diamond[feature] = value
                         break
                     else:
-                        print("   ERRORE: Valore non valido. Riprova.")
+                        print("   ERROR: Invalid value. Try again.")
             
             print("\n" + "="*60)
-            print("RISULTATO DELLA PREDIZIONE".center(60))
+            print("PREDICTION RESULT".center(60))
             print("="*60)
             
             try:
@@ -264,21 +264,21 @@ def prevision_menu():
                 
                 if isinstance(result[0], str):  
                     predicted_class, probability, _, _ = result
-                    print(f"\nCLASSE PREDETTA: {predicted_class}")
-                    print(f"PROBABILITÀ: {probability:.2%}")
+                    print(f"\nPREDICTED CLASS: {predicted_class}")
+                    print(f"PROBABILITY: {probability:.2%}")
                     
                     if predicted_class == "low":
-                        print("INTERPRETAZIONE: Diamante economico - buon rapporto qualità/prezzo")
+                        print("INTERPRETATION: Economic diamond - good quality/price ratio")
                     elif predicted_class == "medium":
-                        print("INTERPRETAZIONE: Diamante di medio valore - equilibrio qualità/prezzo")
+                        print("INTERPRETATION: Medium value diamond - quality/price balance")
                     else:
-                        print("INTERPRETAZIONE: Diamante di alto valore - qualità premium")
+                        print("INTERPRETATION: High value diamond - premium quality")
                         
                 else:  
                     predicted_label, probability, _, _ = result
-                    class_name = "costoso" if predicted_label == 1 else "economico"
-                    print(f"\nCLASSE PREDETTA: {class_name} ({predicted_label})")
-                    print(f"PROBABILITÀ: {probability:.2%}")
+                    class_name = "expensive" if predicted_label == 1 else "economic"
+                    print(f"\nPREDICTED CLASS: {class_name} ({predicted_label})")
+                    print(f"PROBABILITY: {probability:.2%}")
                 
                 last_tested_diamond = {
                     'diamond': diamond,
@@ -287,37 +287,37 @@ def prevision_menu():
                 }
                 
             except Exception as e:
-                print(f"\nERRORE durante la predizione: {e}")
-                print("Verifica che tutte le caratteristiche siano state inserite correttamente.")
+                print(f"\nERROR during the prediction: {e}")
+                print("Check that all the features have been entered correctly.")
         
         
         elif choice == "2":  
             
             print("\n" + "="*60)
-            print("GENERAZIONE DIAMANTE CASUALE".center(60))
+            print("RANDOM DIAMOND GENERATION".center(60))
             print("="*60)
             
             while True:
                 try:
-                    num_diamonds = int(input("\nQuanti diamanti casuali vuoi generare? (1-10): "))
+                    num_diamonds = int(input("\nHow many random diamonds do you want to generate? (1-10): "))
                     if 1 <= num_diamonds <= 10:
                         break
                     else:
-                        print("ERRORE: Inserisci un numero tra 1 e 10")
+                        print("ERROR: Enter a number between 1 and 10")
                 except ValueError:
-                    print("ERRORE: Inserisci un numero valido")
+                    print("ERROR: Enter a valid number")
             
             print("\n" + "="*60)
-            print("DIAMANTI GENERATI E PREDIZIONI".center(60))
+            print("GENERATED DIAMONDS AND PREDICTIONS".center(60))
             print("="*60)
             
             for i in range(num_diamonds):
-                print(f"\nDIAMANTE #{i+1}")
+                print(f"\nDIAMOND #{i+1}")
                 print("-"*40)
                 
-                diamond = random_diamond(f"test_output/diamante_random_{i+1}.json")
+                diamond = random_diamond(f"test_output/diamond_random_{i+1}.json")
                 
-                print("Caratteristiche:")
+                print("Features:")
                 for feature, value in diamond.items():
                     print(f"  {feature}: {value}")
                 
@@ -326,13 +326,13 @@ def prevision_menu():
                     
                     if isinstance(result[0], str):  
                         predicted_class, probability, _, _ = result
-                        print(f"\n  Prezzo predetto: {predicted_class}")
-                        print(f"  Probabilità: {probability:.2%}")
-                    else:  # Binario
+                        print(f"\n  Predicted price: {predicted_class}")
+                        print(f"  Probability: {probability:.2%}")
+                    else:  # Binary
                         predicted_label, probability, _, _ = result
-                        class_name = "costoso" if predicted_label == 1 else "economico"
-                        print(f"\n  Prezzo predetto: {class_name}")
-                        print(f"  Probabilità: {probability:.2%}")
+                        class_name = "expensive" if predicted_label == 1 else "economic"
+                        print(f"\n  Predicted price: {class_name}")
+                        print(f"  Probability: {probability:.2%}")
                     
                     last_tested_diamond = {
                         'diamond': diamond,
@@ -341,18 +341,18 @@ def prevision_menu():
                     }
                 
                 except Exception as e:
-                    print(f"\n  ERRORE nella predizione: {e}")
+                    print(f"\n  ERROR in the prediction: {e}")
             
-            print(f"\nSUCCESSO: Generati e analizzati {num_diamonds} diamanti casuali")
-            print("NOTA: I diamanti sono stati salvati come 'diamante_random_X.json'")
+            print(f"\nSUCCESS: Generated and analyzed {num_diamonds} random diamonds")
+            print("NOTE: The diamonds have been saved as 'diamond_random_X.json'")
         
         
         elif choice == "3":  
             print("\n" + "="*60)
-            print("CARICA DIAMANTE DA FILE JSON".center(60))
+            print("LOAD DIAMOND FROM JSON FILE".center(60))
             print("="*60)
             
-            file_path = input("\nInserisci il nome del file JSON: ").strip()
+            file_path = input("\nEnter the name of the JSON file: ").strip()
             
             if file_path and not os.path.isabs(file_path) and os.path.dirname(file_path) == "":
                 if not file_path.endswith(".json"):
@@ -364,26 +364,26 @@ def prevision_menu():
                     with open(file_path, 'r', encoding='utf-8') as f:
                         diamond = json.load(f)
                     
-                    print("\nSUCCESSO: File caricato correttamente!")
-                    print("\nContenuto del file:")
+                    print("\nSUCCESS: File loaded correctly!")
+                    print("\nFile content:")
                     for feature, value in diamond.items():
                         print(f"  {feature}: {value}")
                     
                     print("\n" + "="*60)
-                    print("RISULTATO DELLA PREDIZIONE".center(60))
+                    print("PREDICTION RESULT".center(60))
                     print("="*60)
                     
                     result = predict_diamond(diamond, thr_mode="argmax")
                     
                     if isinstance(result[0], str):
                         predicted_class, probability, _, _ = result
-                        print(f"\nCLASSE PREDETTA: {predicted_class}")
-                        print(f"PROBABILITÀ: {probability:.2%}")
+                        print(f"\nPREDICTED CLASS: {predicted_class}")
+                        print(f"PROBABILITY: {probability:.2%}")
                     else:
                         predicted_label, probability, _, _ = result
-                        class_name = "costoso" if predicted_label == 1 else "economico"
-                        print(f"\nCLASSE PREDETTA: {class_name}")
-                        print(f"PROBABILITÀ: {probability:.2%}")
+                        class_name = "expensive" if predicted_label == 1 else "economic"
+                        print(f"\nPREDICTED CLASS: {class_name}")
+                        print(f"PROBABILITY: {probability:.2%}")
                     
                     last_tested_diamond = {
                         'diamond': diamond,
@@ -392,22 +392,22 @@ def prevision_menu():
                     }
                     
                 except Exception as e:
-                    print(f"\nERRORE nel caricamento del file: {e}")
+                    print(f"\nERROR while loading the file: {e}")
             else:
-                print(f"\nERRORE: File non trovato: {file_path}")
+                print(f"\nERROR: File not found: {file_path}")
                 if os.path.isdir("test_output"):
                     names = sorted(f for f in os.listdir("test_output") if f.endswith('.json'))
                     if names:
-                        print("\nFile .json disponibili in test_output/:")
+                        print("\nAvailable .json files in test_output/:")
                         for i, name in enumerate(names, 1):
                             print(f"  {i}) {name}")
         
         
-        elif choice == "salva":  
+        elif choice == "save":  
             if last_tested_diamond is not None:
-                filename = input("\nNome del file da salvare (senza estensione): ").strip()
+                filename = input("\nName of the file to save (without extension): ").strip()
                 if not filename:
-                    filename = "diamante_salvato"
+                    filename = "diamond_saved"
                 
                 filename = "test_output/" + filename + ".json"
                 
@@ -415,54 +415,54 @@ def prevision_menu():
                     with open(filename, 'w', encoding='utf-8') as f:
                         json.dump(last_tested_diamond['diamond'], f, indent=4, ensure_ascii=False)
                     
-                    print(f"\nSUCCESSO: Diamante salvato in: {filename}")
-                    print("NOTA: Puoi ricaricarlo con l'opzione 3 del menu")
+                    print(f"\nSUCCESS: Diamond saved in: {filename}")
+                    print("NOTE: You can reload it with option 3 of the menu")
                 except Exception as e:
-                    print(f"\nERRORE nel salvataggio: {e}")
+                    print(f"\nERROR while saving: {e}")
             else:
-                print("\nERRORE: Nessun diamante testato da salvare")
+                print("\nERROR: No tested diamond to save")
         
         
         elif choice == "esc":  
-            print("\nTorno al menu principale...")
+            print("\nReturning to the main menu...")
             break
         
         else:
-            print("\nERRORE: Scelta non valida. Riprova.")
+            print("\nERROR: Invalid choice. Try again.")
 
 
 def threshold_menu():
     
     
-    print("\nCaricamento knowledge base...")
+    print("\nLoading knowledge base...")
     try:
         kb = ExtendedKB()
         kb.load_from_json()
-        print("SUCCESSO: Knowledge base caricata da file")
+        print("SUCCESS: Knowledge base loaded from file")
     except Exception as e:
-        print(f"NOTA: Creazione nuova knowledge base con valori default ({e})")
+        print(f"NOTE: Creating new knowledge base with default values ({e})")
         kb = ExtendedKB()  
         
     while True:
         
         print("\n" + "="*60)
-        print("MENU SOGLIE - VALUTAZIONE DIAMANTI".center(60))
+        print("THRESHOLD MENU - DIAMOND EVALUATION".center(60))
         print("="*60)
-        print("\nCosa vuoi fare?")
-        print("1) Valutare un diamante inserito MANUALMENTE")
-        print("2) Valutare un diamante CASUALE")
-        print("3) Visualizzare tutte le regole/soglie")
-        print("4) Aggiungere una nuova regola/soglia")
-        print("5) Cercare regole specifiche")
-        print("6) Salvare la knowledge base")
-        print("\n'esc' - Torna al menu principale")
+        print("\nWhat do you want to do?")
+        print("1) Evaluate a diamond entered MANUALLY")
+        print("2) Evaluate a RANDOM diamond")
+        print("3) View all the rules/thresholds")
+        print("4) Add a new rule/threshold")
+        print("5) Search for specific rules")
+        print("6) Save the knowledge base")
+        print("\n'esc' - Returns to the main menu")
         print("\n" + "-"*60)
         
         choice = input(">>\t").strip().lower()
         
         if choice == "1":  
             print("\n" + "="*60)
-            print("VALUTAZIONE DIAMANTE MANUALE".center(60))
+            print("MANUAL DIAMOND EVALUATION".center(60))
             print("="*60)
             
             diamond = {}
@@ -471,56 +471,56 @@ def threshold_menu():
             
             for feature in features_to_ask:
                 while True:
-                    print(f"\nCaratteristica: {feature}")
+                    print(f"\nFeature: {feature}")
                     
                     if feature == 'carat':
-                        print("   Esempio: low, medium, high")
+                        print("   Example: low, medium, high")
                     elif feature == 'cut':
-                        print("   Esempio: fair, good, very_good, premium, ideal")
+                        print("   Example: fair, good, very_good, premium, ideal")
                     elif feature == 'color':
-                        print("   Esempio: d, e, f, g, h, i, j")
+                        print("   Example: d, e, f, g, h, i, j")
                     elif feature == 'clarity':
-                        print("   Esempio: i1, si2, si1, vs2, vs1, vvs2, vvs1, if")
+                        print("   Example: i1, si2, si1, vs2, vs1, vvs2, vvs1, if")
                     elif feature in ['depth', 'table']:
-                        print("   Esempio: low, medium, high")
+                        print("   Example: low, medium, high")
                     
-                    value = input(f"   Valore per {feature}: ").strip().lower()
+                    value = input(f"   Value for {feature}: ").strip().lower()
                     
                     if value:
                         diamond[feature] = value
                         break
                     else:
-                        print("   ERRORE: Valore non valido")
+                        print("   ERROR: Invalid value")
             
             print("\n" + "="*60)
-            print("RISULTATO VALUTAZIONE".center(60))
+            print("EVALUATION RESULT".center(60))
             print("="*60)
             
             try:
                 score = kb.fuzzy_beauty_score(diamond)
                 score_percent = score * 100
                 
-                print(f"\nPUNTEGGIO QUALITÀ: {score:.3f} ({score_percent:.1f}%)")
+                print(f"\nQUALITY SCORE: {score:.3f} ({score_percent:.1f}%)")
                 print("-"*40)
                 
                 if score_percent >= 80:
-                    print("ECCELLENTE - Diamante di altissima qualità")
-                    print("   Tutte le caratteristiche soddisfano o superano le aspettative")
+                    print("EXCELLENT - Diamond of very high quality")
+                    print("   All the features meet or exceed the expectations")
                 elif score_percent >= 60:
-                    print("BUONO - Diamante di buona qualità")
-                    print("   La maggior parte delle caratteristiche è soddisfacente")
+                    print("GOOD - Diamond of good quality")
+                    print("   Most of the features are satisfactory")
                 elif score_percent >= 40:
-                    print("MEDIO - Diamante accettabile")
-                    print("   Alcune caratteristiche potrebbero essere migliorate")
+                    print("MEDIUM - Acceptable diamond")
+                    print("   Some features could be improved")
                 elif score_percent >= 20:
-                    print("BASSO - Diamante di qualità inferiore")
-                    print("   Molte caratteristiche non soddisfano gli standard")
+                    print("LOW - Diamond of lower quality")
+                    print("   Many features do not meet the standards")
                 else:
-                    print("MOLTO BASSO - Qualità insufficiente")
-                    print("   Considera alternative migliori")
+                    print("VERY LOW - Insufficient quality")
+                    print("   Consider better alternatives")
                 
                 print("\n" + "-"*60)
-                print("DETTAGLIO PER CARATTERISTICA")
+                print("DETAIL PER FEATURE")
                 print("-"*60)
                 
                 rules = kb.query()
@@ -533,73 +533,73 @@ def threshold_menu():
                         description = rule['description']
                         
                         print(f"\n{feature}: {value}")
-                        print(f"  Regola: {operator} {threshold}")
-                        print(f"  Descrizione: {description}")
+                        print(f"  Rule: {operator} {threshold}")
+                        print(f"  Description: {description}")
             
             except Exception as e:
-                print(f"\nERRORE nella valutazione: {e}")
+                print(f"\nERROR in the evaluation: {e}")
         
         
         elif choice == "2":  
             print("\n" + "="*60)
-            print("VALUTAZIONE DIAMANTE CASUALE".center(60))
+            print("RANDOM DIAMOND EVALUATION".center(60))
             print("="*60)
             
            
-            diamond = random_diamond("test_output/diamante_valutazione.json")
+            diamond = random_diamond("test_output/diamond_evaluation.json")
             
-            print("\nDIAMANTE GENERATO:")
+            print("\nGENERATED DIAMOND:")
             print("-"*40)
             for feature, value in diamond.items():
                 print(f"  {feature}: {value}")
             
             print("\n" + "-"*60)
-            print("VALUTAZIONE KNOWLEDGE BASE")
+            print("KNOWLEDGE BASE EVALUATION")
             print("-"*60)
             
             try:
                 score = kb.fuzzy_beauty_score(diamond)
                 score_percent = score * 100
                 
-                print(f"\nPUNTEGGIO QUALITÀ: {score:.3f} ({score_percent:.1f}%)")
+                print(f"\nQUALITY SCORE: {score:.3f} ({score_percent:.1f}%)")
                 
                 if score_percent >= 80:
-                    print("ECCELLENTE - Raro trovare un diamante così!")
+                    print("EXCELLENT - Rare to find a diamond like this!")
                 elif score_percent >= 60:
-                    print("BUONO - Buon acquisto")
+                    print("GOOD - Good purchase")
                 elif score_percent >= 40:
-                    print("MEDIO - Prezzo dovrebbe essere contenuto")
+                    print("MEDIUM - Price should be low")
                 elif score_percent >= 20:
-                    print("BASSO - Valuta alternative")
+                    print("LOW - Evaluate alternatives")
                 else:
-                    print("MOLTO BASSO - Sconsigliato")
+                    print("VERY LOW - Not recommended")
                     
             except Exception as e:
-                print(f"\nERRORE nella valutazione: {e}")
+                print(f"\nERROR in the evaluation: {e}")
         
         elif choice == "3":  
             
             print("\n" + "="*60)
-            print("REGOLE DELLA KNOWLEDGE BASE".center(60))
+            print("RULES OF THE KNOWLEDGE BASE".center(60))
             print("="*60)
             
             rules = kb.query()
             
             if len(rules) > 0:
-                print(f"\nTrovate {len(rules)} regole semplici:")
+                print(f"\nFound {len(rules)} simple rules:")
                 print("-"*60)
                 
                 for idx, (_, rule) in enumerate(rules.iterrows(), 1):
                     print(f"\n{idx}. {rule['feature']}")
-                    print(f"   Operatore: {rule['operator']}")
-                    print(f"   Valore: {rule['value']}")
-                    print(f"   Livello: {rule['level']}")
-                    print(f"   Descrizione: {rule['description']}")
+                    print(f"   Operator: {rule['operator']}")
+                    print(f"   Value: {rule['value']}")
+                    print(f"   Level: {rule['level']}")
+                    print(f"   Description: {rule['description']}")
             else:
-                print("\nNOTA: Nessuna regola semplice trovata nella knowledge base")
+                print("\nNOTE: No simple rule found in the knowledge base")
 
             if hasattr(kb, 'composite_rules') and len(kb.composite_rules) > 0:
-                print(f"\nTrovate {len(kb.composite_rules)} regole composite:")
+                print(f"\nFound {len(kb.composite_rules)} composite rules:")
                 print("-"*60)
                 
                 for idx, rule in enumerate(kb.composite_rules, 1):
@@ -607,38 +607,38 @@ def threshold_menu():
                         f"{c[0]} {c[1]} {c[2]}" for c in rule["conditions"]
                     )
                     print(f"\n{idx}. {rule['name']}")
-                    print(f"   Condizioni: {conds}")
+                    print(f"   Conditions: {conds}")
                     print(f"   BeautyLevel: {rule['BeautyLevel'].value}")
             elif hasattr(kb, 'composite_rules'):
-                print("\nNOTA: Nessuna regola composta trovata nella knowledge base")
+                print("\nNOTE: No composite rule found in the knowledge base")
         
         elif choice == "4":  
             
             print("\n" + "="*60)
-            print("AGGIUNGI NUOVA REGOLA".center(60))
+            print("ADD NEW RULE".center(60))
             print("="*60)
             
-            print("\nScegli il tipo di regola:")
-            print("1) Regola semplice (soglia per una caratteristica)")
-            print("2) Regola composta (combinazione di più caratteristiche)")
+            print("\nChoose the type of rule:")
+            print("1) Simple rule (threshold for a feature)")
+            print("2) Composite rule (combination of multiple features)")
             
-            rule_type = input("\nScelta (1 o 2): ").strip()
+            rule_type = input("\nChoice (1 or 2): ").strip()
             
             if rule_type == "1":
                 print("\n" + "-"*60)
-                print("NUOVA REGOLA SEMPLICE")
+                print("NEW SIMPLE RULE")
                 print("-"*60)
                 
-                feature = input("\nCaratteristica (es: carat, cut, color): ").strip().lower()
-                operator = input("Operatore (es: <=, >=, ==): ").strip()
-                value = input("Valore (es: medium, ideal, h): ").strip().lower()
+                feature = input("\nFeature (e.g.: carat, cut, color): ").strip().lower()
+                operator = input("Operator (e.g.: <=, >=, ==): ").strip()
+                value = input("Value (e.g.: medium, ideal, h): ").strip().lower()
                 
-                print("\nLivello di apprezzamento:")
-                print("1) LOW (basso)")
-                print("2) MEDIUM (medio)")
-                print("3) HIGH (alto)")
+                print("\nAppreciation level:")
+                print("1) LOW (low)")
+                print("2) MEDIUM (medium)")
+                print("3) HIGH (high)")
                 
-                level_choice = input("Scelta (1-3): ").strip()
+                level_choice = input("Choice (1-3): ").strip()
                 if level_choice == "1":
                     level = BeautyLevel.LOW
                 elif level_choice == "2":
@@ -646,10 +646,10 @@ def threshold_menu():
                 elif level_choice == "3":
                     level = BeautyLevel.HIGH
                 else:
-                    print("NOTA: Impostato livello MEDIUM di default")
+                    print("NOTE: Set MEDIUM level by default")
                     level = BeautyLevel.MEDIUM
                 
-                description = input("\nDescrizione (spiega la regola): ").strip()
+                description = input("\nDescription (explain the rule): ").strip()
                 
                 try:
                     threshold = Threshold(
@@ -661,38 +661,38 @@ def threshold_menu():
                     )
                     
                     kb.insert_threshold(threshold)
-                    print(f"\nSUCCESSO: Regola aggiunta per {feature}")
+                    print(f"\nSUCCESS: Rule added for {feature}")
                 except Exception as e:
-                    print(f"\nERRORE nella creazione della regola: {e}")
+                    print(f"\nERROR while creating the rule: {e}")
             
             elif rule_type == "2":
                 print("\n" + "-"*60)
-                print("NUOVA REGOLA COMPOSITA")
+                print("NEW COMPOSITE RULE")
                 print("-"*60)
                 
-                name = input("\nNome della regola (es: 'DiamantePerfetto'): ").strip()
+                name = input("\nRule name (e.g.: 'PerfectDiamond'): ").strip()
                 
                 conditions = []
-                print("\nAggiungi condizioni (lascia vuoto il nome per terminare):")
+                print("\nAdd conditions (leave the name empty to finish):")
                 
                 while True:
-                    feature = input("\nCaratteristica (lascia vuoto per finire): ").strip().lower()
+                    feature = input("\nFeature (leave empty to finish): ").strip().lower()
                     if not feature:
                         break
                     
-                    operator = input(f"Operatore per {feature} (es: ==, >=): ").strip()
-                    value = input(f"Valore per {feature}: ").strip().lower()
+                    operator = input(f"Operator for {feature} (e.g.: ==, >=): ").strip()
+                    value = input(f"Value for {feature}: ").strip().lower()
                     
                     conditions.append((feature, operator, value))
-                    print(f"SUCCESSO: Condizione aggiunta: {feature} {operator} {value}")
+                    print(f"SUCCESS: Condition added: {feature} {operator} {value}")
                 
                 if conditions:
-                    print("\nLivello di apprezzamento:")
-                    print("1) LOW (basso)")
-                    print("2) MEDIUM (medio)")
-                    print("3) HIGH (alto)")
+                    print("\nAppreciation level:")
+                    print("1) LOW (low)")
+                    print("2) MEDIUM (medium)")
+                    print("3) HIGH (high)")
                     
-                    level_choice = input("Scelta (1-3): ").strip()
+                    level_choice = input("Choice (1-3): ").strip()
                     if level_choice == "1":
                         level = BeautyLevel.LOW
                     elif level_choice == "2":
@@ -700,39 +700,39 @@ def threshold_menu():
                     elif level_choice == "3":
                         level = BeautyLevel.HIGH
                     else:
-                        print("NOTA: Impostato livello MEDIUM di default")
+                        print("NOTE: Set MEDIUM level by default")
                         level = BeautyLevel.MEDIUM
                     
                     try:
                         kb.add_composite_rule(name, conditions, level)
-                        print(f"\nSUCCESSO: Regola composita '{name}' aggiunta con {len(conditions)} condizioni")
+                        print(f"\nSUCCESS: Composite rule '{name}' added with {len(conditions)} conditions")
                     except Exception as e:
-                        print(f"\nERRORE nell'aggiunta della regola: {e}")
+                        print(f"\nERROR while adding the rule: {e}")
                 else:
-                    print("\nERRORE: Nessuna condizione aggiunta")
+                    print("\nERROR: No condition added")
         
         elif choice == "5":  
             
             print("\n" + "="*60)
-            print("CERCA REGOLE".center(60))
+            print("SEARCH RULES".center(60))
             print("="*60)
             
-            print("\nCerca per:")
-            print("1) Caratteristica")
-            print("2) Livello di apprezzamento")
-            print("3) Testo nella descrizione")
+            print("\nSearch by:")
+            print("1) Feature")
+            print("2) Appreciation level")
+            print("3) Text in the description")
             
-            search_type = input("\nScelta (1-3): ").strip()
+            search_type = input("\nChoice (1-3): ").strip()
             
             if search_type == "1":
-                feature = input("\nNome caratteristica (es: cut, color): ").strip().lower()
+                feature = input("\nFeature name (e.g.: cut, color): ").strip().lower()
                 results = kb.query(feature=feature)
             elif search_type == "2":
-                print("\nLivello:")
+                print("\nLevel:")
                 print("1) LOW")
                 print("2) MEDIUM")
                 print("3) HIGH")
-                level_choice = input("Scelta (1-3): ").strip()
+                level_choice = input("Choice (1-3): ").strip()
                 if level_choice == "1":
                     level = BeautyLevel.LOW
                 elif level_choice == "2":
@@ -740,48 +740,48 @@ def threshold_menu():
                 elif level_choice == "3":
                     level = BeautyLevel.HIGH
                 else:
-                    print("NOTA: Cerca a livello MEDIUM")
+                    print("NOTE: Searching at MEDIUM level")
                     level = BeautyLevel.MEDIUM
                 results = kb.query(level=level)
             elif search_type == "3":
-                text = input("\nTesto da cercare nella descrizione: ").strip()
+                text = input("\nText to search for in the description: ").strip()
                 results = kb.query(description_like=text)
             else:
                 results = pd.DataFrame()
             
             if len(results) > 0:
-                print(f"\nTrovate {len(results)} regole:")
+                print(f"\nFound {len(results)} rules:")
                 for _, rule in results.iterrows():
                     print(f"\n• {rule['feature']} {rule['operator']} {rule['value']}")
-                    print(f"  Livello: {rule['level']}")
-                    print(f"  Descrizione: {rule['description']}")
+                    print(f"  Level: {rule['level']}")
+                    print(f"  Description: {rule['description']}")
             else:
-                print("\nNessuna regola trovata")
+                print("\nNo rule found")
         
         elif choice == "6":  
             try:
                 kb.save_to_json()
-                print("\nSUCCESSO: Knowledge base salvata")
+                print("\nSUCCESS: Knowledge base saved")
             except Exception as e:
-                print(f"\nERRORE nel salvataggio: {e}")
+                print(f"\nERROR while saving: {e}")
         
         elif choice == "esc":  
-            print("\nTorno al menu principale...")
+            print("\nReturning to the main menu...")
             break
         
         else:
-            print("\nERRORE: Scelta non valida. Riprova.")
+            print("\nERROR: Invalid choice. Try again.")
 
 
 def rdf_exporter_menu():
     
-    print("\nCaricamento knowledge base per esportazione RDF...")
+    print("\nLoading knowledge base for RDF export...")
     try:
         kb = ExtendedKB()
         kb.load_from_json()
-        print("SUCCESSO: Knowledge base caricata")
+        print("SUCCESS: Knowledge base loaded")
     except Exception as e:
-        print(f"NOTA: Creazione nuova knowledge base ({e})")
+        print(f"NOTE: Creating new knowledge base ({e})")
         kb = ExtendedKB()
     
     loaded_rdf_path = None
@@ -791,15 +791,15 @@ def rdf_exporter_menu():
     while True:
         
         print("\n" + "="*60)
-        print("MENU ESPORTAZIONE RDF - CONOSCENZA SEMANTICA".center(60))
+        print("RDF EXPORT MENU - SEMANTIC KNOWLEDGE".center(60))
         print("="*60)
-        print("\nCosa vuoi fare?")
-        print("1) Esportare la Knowledge Base in RDF")
-        print("2) Caricare una Knowledge Base da file RDF, o un diamante")
-        print("3) Generare report RDF per un diamante specifico")
-        print("4) Eseguire query SPARQL sulla KB")
-        print("5) Visualizzare statistiche della KB RDF, o del diamante")
-        print("\n'esc' - Torna al menu principale")
+        print("\nWhat do you want to do?")
+        print("1) Export the Knowledge Base in RDF")
+        print("2) Load a Knowledge Base from an RDF file, or a diamond")
+        print("3) Generate RDF reports for a specific diamond")
+        print("4) Run SPARQL queries on the KB")
+        print("5) Display statistics of the RDF KB, or of the diamond")
+        print("\n'esc' - Returns to the main menu")
         print("\n" + "-"*60)
         
         choice = input(">>\t").strip().lower()
@@ -807,34 +807,34 @@ def rdf_exporter_menu():
         if choice == "1":  
             
             print("\n" + "="*60)
-            print("ESPORTAZIONE KNOWLEDGE BASE RDF".center(60))
+            print("KNOWLEDGE BASE RDF EXPORT".center(60))
             print("="*60)
             
-            base_name = input("\nBase nome file [diamonds_ai_system]: ").strip() or "diamonds_ai_system"
+            base_name = input("\nBase file name [diamonds_ai_system]: ").strip() or "diamonds_ai_system"
             
-            print("\nInformazioni della Knowledge Base:")
+            print("\nKnowledge Base information:")
             kb_metadata = {}
-            kb_metadata['title'] = input("Titolo KB [Knowledge Base per Valutazione Diamanti]: ").strip() or "Knowledge Base per Valutazione Diamanti"
-            kb_metadata['creator'] = input("Creatore KB [Sistema di Intelligenza Artificiale]: ").strip() or "Sistema di Intelligenza Artificiale"
-            kb_metadata['date'] = input("Data KB [2024]: ").strip() or "2024"
-            kb_metadata['description'] = input("Descrizione KB [Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C]: ").strip() or "Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C"
+            kb_metadata['title'] = input("KB Title [Knowledge Base for Diamond Evaluation]: ").strip() or "Knowledge Base for Diamond Evaluation"
+            kb_metadata['creator'] = input("KB Creator [Artificial Intelligence System]: ").strip() or "Artificial Intelligence System"
+            kb_metadata['date'] = input("KB Date [2024]: ").strip() or "2024"
+            kb_metadata['description'] = input("KB Description [Knowledge base for evaluating the quality of diamonds based on the characteristics of the 4C]: ").strip() or "Knowledge base for evaluating the quality of diamonds based on the characteristics of the 4C"
             
             try:
                 result_path = export_kb_rdf(kb, base_name, kb_metadata=kb_metadata)
                 
-                print("\nSUCCESSO: Knowledge Base esportata!")
+                print("\nSUCCESS: Knowledge Base exported!")
                 print(f"  File: {result_path}")
                     
             except Exception as e:
-                print(f"\nERRORE nell'esportazione: {e}")
+                print(f"\nERROR while exporting: {e}")
         
         
         elif choice == "2":  
             print("\n" + "="*60)
-            print("CARICA KNOWLEDGE BASE O DIAMANTE DA RDF".center(60))
+            print("LOAD KNOWLEDGE BASE OR DIAMOND FROM RDF".center(60))
             print("="*60)
             
-            print("\nFile disponibili in test_output/:")
+            print("\nFiles available in test_output/:")
             try:
                 files = [f for f in os.listdir("test_output") if f.endswith('.ttl')]
                 for i, f in enumerate(files, 1):
@@ -843,7 +843,7 @@ def rdf_exporter_menu():
                 files = []
             
             if files:
-                file_choice = input("\nNumero del file o percorso completo: ").strip()
+                file_choice = input("\nFile number or full path: ").strip()
                 
                 try:
                     if file_choice.isdigit():
@@ -851,23 +851,23 @@ def rdf_exporter_menu():
                         if 0 <= idx < len(files):
                             rdf_path = os.path.join("test_output", files[idx])
                         else:
-                            print("Numero non valido")
+                            print("Invalid number")
                             continue
                     else:
                         rdf_path = file_choice
                     
-                    print(f"\nCaricamento da: {rdf_path}")
+                    print(f"\nLoading from: {rdf_path}")
                     
                     if is_diamond_report(rdf_path):
-                        print("\nFile riconosciuto: REPORT DIAMANTE")
+                        print("\nFile recognized: DIAMOND REPORT")
                         loaded_diamond_report = load_diamond_report_from_rdf(rdf_path)
                         loaded_kb_path = None
                         
                         if not loaded_diamond_report:
-                            print("\nNessun diamante trovato nel report")
+                            print("\nNo diamond found in the report")
                         else:
-                            print(f"\nSUCCESSO: {len(loaded_diamond_report)} diamante/i caricato/i in memoria.")
-                            print("Informazioni disponibili con l'opzione 5.")
+                            print(f"\nSUCCESS: {len(loaded_diamond_report)} diamond/s loaded in memory.")
+                            print("Information available with option 5.")
                         loaded_rdf_path = rdf_path
                     
                     else:
@@ -879,36 +879,36 @@ def rdf_exporter_menu():
                         
                         kb = loaded_kb
                         
-                        print("\nSUCCESSO: Knowledge Base caricata in memoria da RDF!")
-                        print(f"Soglie caricate: {len(kb._store)}")
-                        print(f"Regole composite: {len(kb.composite_rules)}")
-                        print("Resoconto e statistiche disponibili con l'opzione 5.")
-                        print("KB pronta: query SPARQL (opzione 4) e statistiche (opzione 5) abilitate.")
+                        print("\nSUCCESS: Knowledge Base loaded in memory from RDF!")
+                        print(f"Thresholds loaded: {len(kb._store)}")
+                        print(f"Composite rules: {len(kb.composite_rules)}")
+                        print("Summary and statistics available with option 5.")
+                        print("KB ready: SPARQL queries (option 4) and statistics (option 5) enabled.")
                 
                 except Exception as e:
-                    print(f"\nERRORE nel caricamento: {e}")
+                    print(f"\nERROR while loading: {e}")
             else:
-                print("\nNessun file RDF trovato nella cartella test_output/")
+                print("\nNo RDF file found in the test_output/ folder")
         
         
         elif choice == "3":  
             print("\n" + "="*60)
-            print("REPORT RDF PER DIAMANTE".center(60))
+            print("RDF REPORT FOR DIAMOND".center(60))
             print("="*60)
             
-            print("\nScegli come ottenere il diamante:")
-            print("1) Inserire manualmente")
-            print("2) Generare casualmente")
-            print("3) Usare ultimo diamante testato")
+            print("\nChoose how to obtain the diamond:")
+            print("1) Enter manually")
+            print("2) Generate randomly")
+            print("3) Use last tested diamond")
             
-            diamond_choice = input("\nScelta (1-3): ").strip()
+            diamond_choice = input("\nChoice (1-3): ").strip()
             diamond = None
             
             if diamond_choice == "1":
                 diamond = {}
                 features = ['carat', 'cut', 'color', 'clarity', 'depth', 'table', 'x', 'y', 'z']
                 
-                print("\nInserisci le caratteristiche:")
+                print("\nEnter the features:")
                 for feature in features:
                     value = input(f"{feature}: ").strip().lower()
                     if value:
@@ -917,21 +917,21 @@ def rdf_exporter_menu():
                         diamond[feature] = "medium"  
             elif diamond_choice == "2":
                 diamond = random_diamond()
-                print("\nDiamante generato casualmente")
+                print("\nDiamond generated randomly")
                 
             elif diamond_choice == "3":
                 if last_tested_diamond:
                     diamond = last_tested_diamond['diamond']
-                    print("\nUsando ultimo diamante testato")
+                    print("\nUsing last tested diamond")
                 else:
-                    print("\nNessun diamante testato disponibile")
+                    print("\nNo tested diamond available")
                     continue
             else:
-                print("Scelta non valida")
+                print("Invalid choice")
                 continue
             
             if diamond:
-                filename = input("\nNome file report [diamond_report.ttl]: ").strip()
+                filename = input("\nReport file name [diamond_report.ttl]: ").strip()
                 if not filename:
                     filename = "diamond_report.ttl"
                 
@@ -943,44 +943,44 @@ def rdf_exporter_menu():
                 try:
                     result_path = generate_diamond_rdf_report(diamond, kb, output_path)
                     
-                    print(f"\nSUCCESSO: Report RDF generato!")
+                    print(f"\nSUCCESS: RDF report generated!")
                     print(f"File: {result_path}")
                     
                     fuzzy_score = kb.fuzzy_beauty_score(diamond)
-                    print(f"Fuzzy score del diamante: {fuzzy_score:.3f}")
+                    print(f"Fuzzy score of the diamond: {fuzzy_score:.3f}")
                     
-                    print("\nAnteprima report:")
+                    print("\nReport preview:")
                     with open(result_path, 'r', encoding='utf-8') as f:
                         lines = f.readlines()[:15]
                         for line in lines:
                             print(f"  {line.rstrip()}")
                             
                 except Exception as e:
-                    print(f"\nERRORE nella generazione report: {e}")
+                    print(f"\nERROR while generating the report: {e}")
         
         
         elif choice == "4":  
             print("\n" + "="*60)
-            print("QUERY SPARQL SULLA KNOWLEDGE BASE".center(60))
+            print("SPARQL QUERY ON THE KNOWLEDGE BASE".center(60))
             print("="*60)
             
             if not loaded_kb_path:
-                print("\nERRORE: Nessuna Knowledge Base caricata in memoria.")
-                print("Usa prima l'opzione 2 per caricare una KB in memoria.")
+                print("\nERROR: No Knowledge Base loaded in memory.")
+                print("Use option 2 first to load a KB in memory.")
                 continue
             
-            print(f"\nFile interrogato: {loaded_kb_path}")
+            print(f"\nQueried file: {loaded_kb_path}")
             
             while True:
                 print("\n" + "-"*60)
-                print("Query predefinite disponibili:")
+                print("Available predefined queries:")
                 for i, (name, query) in enumerate(SPARQL_QUERIES.items(), 1):
                     print(f"  {i}) {name}")
                 
-                print("  c) Query personalizzata")
-                print("  esc) Torna al menu Esportazione RDF")
+                print("  c) Custom query")
+                print("  esc) Returns to the RDF Export menu")
                 
-                query_choice = input("\nScelta: ").strip().lower()
+                query_choice = input("\nChoice: ").strip().lower()
                 
                 if query_choice in ("esc", "q", "0", "exit"):
                     break
@@ -988,7 +988,7 @@ def rdf_exporter_menu():
                 sparql_query = ""
                 
                 if query_choice == "c":
-                    print("\nInserisci la tua query SPARQL (termina con linea vuota):")
+                    print("\nEnter your SPARQL query (end with an empty line):")
                     lines = []
                     while True:
                         line = input("SPARQL> ")
@@ -1004,33 +1004,33 @@ def rdf_exporter_menu():
                         sparql_query = SPARQL_QUERIES[query_name]
                         print(f"\nQuery: {query_name}")
                     else:
-                        print("Numero non valido")
+                        print("Invalid number")
                         continue
                 else:
-                    print("Scelta non valida")
+                    print("Invalid choice")
                     continue
                 
                 if sparql_query:
                     try:
-                        print("\nEsecuzione query...")
+                        print("\nRunning query...")
                         results = query_rdf_kb(loaded_kb_path, sparql_query)
                         
-                        print(f"\nRISULTATI: {len(results)} righe trovate")
+                        print(f"\nRESULTS: {len(results)} rows found")
                         print("-"*60)
                         
                         if results:
                             for i, row in enumerate(results, 1):
-                                print(f"\nRiga {i}:")
+                                print(f"\nRow {i}:")
                                 for key, value in row.items():
                                     print(f"  {key}: {value}")
                             
                         else:
-                            print("Nessun risultato trovato")
+                            print("No result found")
                             
                     except Exception as e:
-                        print(f"\nERRORE nell'esecuzione query: {e}")
+                        print(f"\nERROR while executing the query: {e}")
                 
-                print("\n[INVIO = nuova query | 'esc' = torna al menu Esportazione RDF]")
+                print("\n[ENTER = new query | 'esc' = returns to the RDF Export menu]")
                 back = input("> ").strip().lower()
                 if back in ("esc", "q", "0", "exit"):
                     break
@@ -1038,134 +1038,138 @@ def rdf_exporter_menu():
         
         elif choice == "5":  
             print("\n" + "="*60)
-            print("STATISTICHE KNOWLEDGE BASE RDF".center(60))
+            print("KNOWLEDGE BASE RDF STATISTICS".center(60))
             print("="*60)
             
             if loaded_kb_path:
                 try:
                     print_rdf_summary(describe_rdf(loaded_kb_path))
                 except Exception as e:
-                    print(f"\n[AVVISO] Analisi file non riuscita: {e}")
+                    print(f"\n[WARNING] File analysis failed: {e}")
                 
-                print("\n== CONTENUTO CARICATO IN MEMORIA ==")
+                print("\n== CONTENT LOADED IN MEMORY ==")
                 print_kb_recap(kb)
                 print_rdf_file_stats(loaded_kb_path)
             
             elif loaded_diamond_report:
-                print(f"\nPercorso: {loaded_rdf_path}")
+                print(f"\nPath: {loaded_rdf_path}")
                 for report in loaded_diamond_report:
                     print_diamond_report(report)
             
             else:
-                print("\nNESSUN FILE RDF CARICATO IN MEMORIA")
-                print("Usa l'opzione 2 per caricare una KB o un diamante.")
+                print("\nNO RDF FILE LOADED IN MEMORY")
+                print("Use option 2 to load a KB or a diamond.")
         
         
         elif choice == "esc":  
-            print("\nTorno al menu principale...")
+            print("\nReturning to the main menu...")
             break
         
         else:
-            print("\nERRORE: Scelta non valida. Riprova.")
+            print("\nERROR: Invalid choice. Try again.")
 
 
 def ui():
     
     print("\n" + "="*70)
-    print("BENVENUTO NEL SISTEMA DI INTELLIGENZA ARTIFICIALE".center(70))
-    print("PREDIZIONE E VALUTAZIONE DIAMANTI".center(70))
+    print("WELCOME TO THE ARTIFICIAL INTELLIGENCE SYSTEM".center(70))
+    print("DIAMOND PREDICTION AND EVALUATION".center(70))
     print("="*70)
     
-    print("\nQuesto sistema permette di:")
-    print("   1) Prevedere il prezzo di un diamante usando AI")
-    print("   2) Valutare la qualità di un diamante con regole esperte")
-    print("   3) Esportare conoscenza in formato semantico (RDF)")
+    print("\nThis system allows you to:")
+    print("   1) Predict the price of a diamond using AI")
+    print("   2) Evaluate the quality of a diamond with expert rules")
+    print("   3) Export knowledge in semantic format (RDF)")
     
     print("\n" + "-"*70)
-    print("INIZIALIZZAZIONE DEL MODELLO DI APPRENDIMENTO".center(70))
+    print("INITIALIZATION OF THE LEARNING MODEL".center(70))
     print("-"*70)
-    print("\nSto caricando e preparando i dati dei diamanti...")
+    print("\nI am loading and preparing the diamond data...")
     
     df = CategoricalDataFrame()
     
-    print("\nSUCCESSO: DATI CARICATI CORRETTAMENTE!")
-    print(f"   Diamanti nel dataset: {len(df)}")
-    print(f"   Colonne disponibili: {', '.join(df.columns)}")
+    print("\nSUCCESS: DATA LOADED CORRECTLY!")
+    print(f"   Diamonds in the dataset: {len(df)}")
+    print(f"   Available columns: {', '.join(df.columns)}")
     
     while True:
         print("\n" + "="*60)
-        print("MENU PRINCIPALE".center(60))
+        print("MAIN MENU".center(60))
         print("="*60)
-        print("\nCosa vuoi fare?")
-        print("1) TESTARE LA PREVISIONE AI")
-        print("   • Inserisci o genera diamanti")
-        print("   • Ottieni previsioni di prezzo (low/medium/high)")
-        print("   • Vedi le probabilità e la confidenza")
+        print("\nWhat do you want to do?")
+        print("1) TEST THE AI PREDICTION")
+        print("   • Enter or generate diamonds")
+        print("   • Get price predictions (low/medium/high)")
+        print("   • See the probabilities and the confidence")
         
-        print("\n2) ESPLORARE SOGLIE DI VALUTAZIONE")
-        print("   • Valuta la qualità dei diamanti")
-        print("   • Gestisci regole di valutazione")
-        print("   • Aggiungi nuove regole esperte")
+        print("\n2) EXPLORE EVALUATION THRESHOLDS")
+        print("   • Evaluate the quality of diamonds")
+        print("   • Manage evaluation rules")
+        print("   • Add new expert rules")
         
-        print("\n3) ESPORTAZIONE RDF - CONOSCENZA SEMANTICA")
-        print("   • Esporta regole in formato RDF/Turtle")
-        print("   • Esegui query SPARQL sulla knowledge base")
-        print("   • Genera report semantici per diamanti")
+        print("\n3) RDF EXPORT - SEMANTIC KNOWLEDGE")
+        print("   • Export rules in RDF/Turtle format")
+        print("   • Run SPARQL queries on the knowledge base")
+        print("   • Generate semantic reports for diamonds")
         
-        print("\n4) ADDESTRARE IL MODELLO AI")
-        print("   • Rigenera il modello con i dati attuali")
-        print("   • Ottieni nuove metriche di performance")
+        print("\n4) TRAIN THE AI MODEL")
+        print("   • Regenerate the model with the current data")
+        print("   • Get new performance metrics")
         
-        print("\n5) ANALISI ESPLORATIVA DEI DATI")
+        print("\n5) EXPLORATORY DATA ANALYSIS")
+        print("   • Visualize the dataset with graphs and statistics")
+        print("   • Analyze correlations and patterns in the data")
         
-        print("\n6) VERIFICA PRESTAZIONI DEL SISTEMA DI APPRENDIMENTO")
+        print("\n6) CHECK THE PERFORMANCE OF THE LEARNING SYSTEM")
+        print("   • Evaluate the model with learning curves and reliability diagrams")
+        print("   • Get performance metrics and insights on the model's behavior")
         
-        print("\n7) ESCI")
+        print("\n7) EXIT")
         print("\n" + "-"*60)
         
-        choice = input("\nSeleziona un'opzione (1-7): ").strip()
+        choice = input("\nSelect an option (1-7): ").strip()
         
         if choice == "1":
-            prevision_menu()
+            prediction_menu()
         elif choice == "2":
             threshold_menu()
         elif choice == "3":
             rdf_exporter_menu()
         elif choice == "4":
             print("\n" + "="*60)
-            print("ADDESTRAMENTO MODELLO AI".center(60))
+            print("AI MODEL TRAINING".center(60))
             print("="*60)
-            print("\nATTENZIONE: questa operazione potrebbe richiedere alcuni minuti")
-            confirm = input("\nProcedere con l'addestramento? (s/n): ").strip().lower()
-            if confirm == 's':
+            print("\nWARNING: this operation could take a few minutes")
+            confirm = input("\nProceed with the training? (y/n): ").strip().lower()
+            if confirm == 'y':
                 while True:
                     try:
-                        num_examples = int(input("\nSu quanti esempi deve essere effettuato l'addestramento? (da 25 a 53940): ").strip())
+                        num_examples = int(input("\nOn how many examples should the training be performed? (from 25 to 53940): ").strip())
                         if 25 <= num_examples <= 53940:
                             break
                         else:
-                            print("ERRORE: Il numero deve essere tra 25 e 53940")
+                            print("ERROR: The number must be between 25 and 53940")
                     except ValueError:
-                        print("ERRORE: Inserisci un numero valido")
+                        print("ERROR: Enter a valid number")
 
                 config.NUM_TRAINING_EXAMPLES = num_examples
-                print(f"\nSto rigenerando i dati con {num_examples} diamanti...")
+                print(f"\nI am regenerating the data with {num_examples} diamonds...")
                 df = CategoricalDataFrame(num_diamonds=num_examples)   # type: ignore
-                print("\nSUCCESSO: Modello addestrato e salvato!")
+                print("\nSUCCESS: Model trained and saved!")
             else:
-                print("\nAddestramento annullato")
+                print("\nTraining cancelled")
         elif choice == "5":
             df.eda()
-            input("\nPremi Invio per continuare...")
+            input("\nPress Enter to continue...")
         elif choice == "6":
             df.plot_reliability_diagram()
             df.plot_learning_curve_single_run()
             df.evaluate_model_performance()
-            input("\nPremi Invio per continuare...")
+            input("\nPress Enter to continue...")
         elif choice == "7":
             print("\n" + "="*60)
-            print("GRAZIE PER AVER USATO IL SISTEMA!".center(60))
+            print("THANKS FOR USING THE SYSTEM!".center(60))
             print("="*60)
             break
         else:
-            print("\nERRORE: Scelta non valida. Inserisci un numero da 1 a 7.")
+            print("\nERROR: Invalid choice. Enter a number from 1 to 7.")

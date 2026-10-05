@@ -58,7 +58,7 @@ CV_SCORING = {
 
 def fmt(value, digits: int = 3) -> str:
     if value is None:
-        return "n/d"
+        return "n/a"
     return f"{value:.{digits}f}"
 
 
@@ -104,31 +104,31 @@ class CategoricalDataFrame(pd.DataFrame):
         prolog.consult(PROLOG_FILE)
     
     
-        risultati = list(prolog.query("prop(Diamond, carat, _)"))
-        diamond_ids = list(set([ris["Diamond"] for ris in risultati]))
+        results = list(prolog.query("prop(Diamond, carat, _)"))
+        diamond_ids = list(set([r["Diamond"] for r in results]))
         diamond_ids.sort(key=lambda x: int(x.split('_')[1]) if '_' in x else 0)
     
-        colonne_finali = ['carat', 'cut', 'color', 'clarity', 'depth', 'table', 'x', 'y', 'z', 'price']
+        final_columns = ['carat', 'cut', 'color', 'clarity', 'depth', 'table', 'x', 'y', 'z', 'price']
     
-        dati = {colonna: [] for colonna in colonne_finali}
+        data = {column: [] for column in final_columns}
     
         for diamond_id in diamond_ids:
-            for colonna in colonne_finali:
-                if colonna in ['carat', 'depth', 'table', 'x', 'y', 'z', 'price']:
-                    classe_colonna = f"{colonna}_class"
-                    query = list(prolog.query(f"prop({diamond_id}, {classe_colonna}, Value)"))
+            for column in final_columns:
+                if column in ['carat', 'depth', 'table', 'x', 'y', 'z', 'price']:
+                    column_class = f"{column}_class"
+                    query = list(prolog.query(f"prop({diamond_id}, {column_class}, Value)"))
                     if query:
-                        dati[colonna].append(query[0]["Value"])
+                        data[column].append(query[0]["Value"])
                     else:
-                        dati[colonna].append(None)
+                        data[column].append(None)
                 else:
-                    query = list(prolog.query(f"prop({diamond_id}, {colonna}, Value)"))
+                    query = list(prolog.query(f"prop({diamond_id}, {column}, Value)"))
                     if query:
-                        dati[colonna].append(query[0]["Value"])
+                        data[column].append(query[0]["Value"])
                     else:
-                        dati[colonna].append(None)
+                        data[column].append(None)
     
-        df = pd.DataFrame(dati)
+        df = pd.DataFrame(data)
 
         for col in df.columns:
             self[col] = df[col]
@@ -145,33 +145,33 @@ class CategoricalDataFrame(pd.DataFrame):
         if TARGET_COL in self.columns:
             return TARGET_COL
         else:
-            raise ValueError("Colonna target", TARGET_COL,"non trovata nel DataFrame.")
+            raise ValueError("Target column", TARGET_COL,"not found in the DataFrame.")
 
 
 
-    def eda(self, grafici: bool = True) -> None:
-        print("\n=== ANALISI STATISTICA DESCRITTIVA ===")
+    def eda(self, graphics: bool = True) -> None:
+        print("\n=== DESCRIPTIVE STATISTICAL ANALYSIS ===")
     
-        stats_descrittive = pd.DataFrame({
-            'Tipo': self.dtypes,
-            'Valori Unici': self.nunique(),
-            'Valori Non Nulli': self.count(),
-           'Valori Nulli': self.isna().sum(),
-            'Moda': self.mode().iloc[0] if not self.empty else None,
-            'Freq Moda': [self[col].value_counts().iloc[0] if not self[col].empty else 0 for col in self.columns]
+        descriptive_stats = pd.DataFrame({
+            'Type': self.dtypes,
+            'Unique Values': self.nunique(),
+            'Non-Null Values': self.count(),
+           'Null Values': self.isna().sum(),
+            'Mode': self.mode().iloc[0] if not self.empty else None,
+            'Mode Freq': [self[col].value_counts().iloc[0] if not self[col].empty else 0 for col in self.columns]
         })
     
-        print(stats_descrittive)
+        print(descriptive_stats)
     
-        print("\n=== VALORI NULLI PER COLONNA ===")
+        print("\n=== NULL VALUES PER COLUMN ===")
         null_counts = self.isna().sum()
         if null_counts.sum() == 0:
-            print("Nessun valore nullo trovato!")
+            print("No null value found!")
         else:
             print(null_counts)
 
-        if not grafici:
-            print("\nAnalisi statistica completata. Grafici disattivati.")
+        if not graphics:
+            print("\nStatistical analysis completed. Graphics disabled.")
             return
 
         target = 'price'
@@ -179,20 +179,20 @@ class CategoricalDataFrame(pd.DataFrame):
         if target in self.columns:
             plt.figure(figsize=(10, 6))
             sns.countplot(x=target, data=self, order=self[target].value_counts().index)
-            plt.title(f"Distribuzione Classe Target ({target})")
+            plt.title(f"Target Class Distribution ({target})")
             plt.xticks(rotation=45)
             plt.tight_layout()
             plt.show()
             _close_figure()
         else:
-            print(f"Colonna target '{target}' non trovata")
+            print(f"Target column '{target}' not found")
 
-        print("\n=== MATRICE DI ASSOCIAZIONE CATEGORIALE ===")
+        print("\n=== CATEGORICAL ASSOCIATION MATRIX ===")
     
-        colonne_numeriche = []
-        colonne_categoriali = self.columns.tolist()
+        numeric_columns = []
+        categorical_columns = self.columns.tolist()
     
-        if len(colonne_categoriali) > 1:
+        if len(categorical_columns) > 1:
             
             def cramers_v(x, y):
                 confusion_matrix = pd.crosstab(x, y)
@@ -206,11 +206,11 @@ class CategoricalDataFrame(pd.DataFrame):
                 kcorr = k - ((k-1)**2)/(n-1)
                 return np.sqrt(phi2corr / min((kcorr-1), (rcorr-1)))
         
-            cramers_matrix = pd.DataFrame(np.zeros((len(colonne_categoriali), len(colonne_categoriali))),
-                                        index=colonne_categoriali, columns=colonne_categoriali)
+            cramers_matrix = pd.DataFrame(np.zeros((len(categorical_columns), len(categorical_columns))),
+                                        index=categorical_columns, columns=categorical_columns)
         
-            for i, col1 in enumerate(colonne_categoriali):
-                for j, col2 in enumerate(colonne_categoriali):
+            for i, col1 in enumerate(categorical_columns):
+                for j, col2 in enumerate(categorical_columns):
                     if i == j:
                         cramers_matrix.iloc[i, j] = 1.0
                     else:
@@ -222,33 +222,33 @@ class CategoricalDataFrame(pd.DataFrame):
             plt.figure(figsize=(12, 10))
             sns.heatmap(cramers_matrix, annot=True, cmap="coolwarm", center=0, 
                        vmin=0, vmax=1, fmt='.2f')
-            plt.title("Matrice di Associazione (Cramér's V)")
+            plt.title("Association Matrix (Cramér's V)")
             plt.tight_layout()
             plt.show()
             _close_figure()
         
-            print("Matrice Cramér's V (valori più alti indicano associazione più forte):")
+            print("Cramér's V Matrix (higher values indicate stronger association):")
             print(cramers_matrix.round(3))
 
-        variabili_principali = ['carat', 'cut', 'color', 'clarity', target]
-        variabili_presenti = [col for col in variabili_principali if col in self.columns]
+        main_variables = ['carat', 'cut', 'color', 'clarity', target]
+        present_variables = [col for col in main_variables if col in self.columns]
 
-        if len(variabili_presenti) >= 2:
-            n_vars = len(variabili_presenti)
+        if len(present_variables) >= 2:
+            n_vars = len(present_variables)
             
             fig, axes = plt.subplots(n_vars, n_vars, figsize=(12, 12))
             
             plt.subplots_adjust(wspace=0.5, hspace=0.5)
             
-            for i, var_row in enumerate(variabili_presenti):
-                for j, var_col in enumerate(variabili_presenti):
+            for i, var_row in enumerate(present_variables):
+                for j, var_col in enumerate(present_variables):
                     ax = axes[i, j]
                     
                     if i == j:
                         counts = self[var_row].value_counts().sort_index()
                         ax.bar(range(len(counts)), counts.values, color='skyblue', alpha=0.7)
                         
-                        ax.set_title(f'Distribuzione {var_row}', fontsize=9, pad=8)
+                        ax.set_title(f'Distribution {var_row}', fontsize=9, pad=8)
                         ax.set_xticks(range(len(counts)))
                         
                         ax.set_xticklabels(counts.index, rotation=60, ha='right', fontsize=7)
@@ -282,29 +282,29 @@ class CategoricalDataFrame(pd.DataFrame):
             plt.show()
             _close_figure()
 
-        print("\n=== ANALISI DISTRIBUZIONI DETTAGLIATE ===")
+        print("\n=== DETAILED DISTRIBUTIONS ANALYSIS ===")
     
-        for colonna in self.columns:
-            print(f"\n{colonna.upper()}:")
-            conteggi = self[colonna].value_counts()
-            for valore, count in conteggi.items():
-                percentuale = (count / len(self)) * 100
-                print(f"  {valore}: {count} diamanti ({percentuale:.1f}%)")
+        for column in self.columns:
+            print(f"\n{column.upper()}:")
+            counts = self[column].value_counts()
+            for value, count in counts.items():
+                percentage = (count / len(self)) * 100
+                print(f"  {value}: {count} diamonds ({percentage:.1f}%)")
 
         if target in self.columns:
-            print(f"\n=== RELAZIONE CON TARGET ({target}) ===")
+            print(f"\n=== RELATIONSHIP WITH TARGET ({target}) ===")
         
-            variabili_predictive = [col for col in self.columns if col != target]
+            predictive_variables = [col for col in self.columns if col != target]
         
-            for var in variabili_predictive[:4]:
-                print(f"\nRelazione {var} → {target}:")
+            for var in predictive_variables[:4]:
+                print(f"\nRelationship {var} → {target}:")
                 cross_tab = pd.crosstab(self[var], self[target], normalize='index') * 100
                 print(cross_tab.round(1))
             
                 if var in ['carat', 'cut', 'color', 'clarity']:
                     plt.figure(figsize=(10, 6))
                     sns.heatmap(cross_tab, annot=True, fmt='.1f', cmap='Blues')
-                    plt.title(f"Distribuzione {target} per {var} (%)")
+                    plt.title(f"Distribution of {target} by {var} (%)")
                     plt.tight_layout()
                     plt.show()
                     _close_figure()
@@ -316,7 +316,7 @@ class CategoricalDataFrame(pd.DataFrame):
         target_col = self.get_target_column()
         
         if target_col not in self.columns:
-            raise ValueError(f"Colonna target '{target_col}' non trovata")
+            raise ValueError(f"Target column '{target_col}' not found")
         
         ordinal_features = ['carat', 'price', 'depth', 'table', 'x', 'y', 'z']
         ordinal_features = [c for c in ordinal_features if c != target_col]
@@ -368,7 +368,7 @@ class CategoricalDataFrame(pd.DataFrame):
         from sklearn.calibration import calibration_curve
         
         if mode not in ("oof", "test"):
-            raise ValueError(f"mode non valido: {mode!r}. Usa 'oof' o 'test'.")
+            raise ValueError(f"invalid mode: {mode!r}. Use 'oof' or 'test'.")
         
         payload = joblib.load(model_path)
         model = payload["model"]
@@ -386,7 +386,7 @@ class CategoricalDataFrame(pd.DataFrame):
         y_encoded = np.asarray(y_encoded).ravel()
         
         if not hasattr(model, 'predict_proba'):
-            print("Il modello non supporta predict_proba()")
+            print("The model does not support predict_proba()")
             return None
         
         if mode == "oof":
@@ -402,8 +402,8 @@ class CategoricalDataFrame(pd.DataFrame):
         
         if mode != "oof":
             if test_data is None:
-                print("✗ Nessun test set salvato nel modello. "
-                      "Ri-addestrare il modello oppure usare mode='test'.")
+                print("✗ No test set saved in the model. "
+                      "Retrain the model or use mode='test'.")
                 return None
             y_true_cal = np.asarray(test_data["y_test"]).ravel()
             y_proba = model.predict_proba(test_data["X_test"])
@@ -423,11 +423,11 @@ class CategoricalDataFrame(pd.DataFrame):
                 strategy='uniform'
             )
             
-            ax.plot(prob_pred, prob_true, marker='o', linewidth=1, label=f'Classe {cls_name}')
-            ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfettamente calibrato')
-            ax.set_xlabel('Probabilità predetta')
-            ax.set_ylabel('Frazione osservata')
-            ax.set_title(f'Reliability Plot - Classe {cls_name}')
+            ax.plot(prob_pred, prob_true, marker='o', linewidth=1, label=f'Class {cls_name}')
+            ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfectly calibrated')
+            ax.set_xlabel('Predicted probability')
+            ax.set_ylabel('Observed fraction')
+            ax.set_title(f'Reliability Plot - Class {cls_name}')
             ax.legend()
             ax.grid(True, alpha=0.3)
         
@@ -440,7 +440,7 @@ class CategoricalDataFrame(pd.DataFrame):
         for i in range(n_classes):
             brier = brier_score_loss(y_true_cal == i, y_proba[:, i])
             brier_scores.append((le.classes_[i], brier))
-            print(f"Brier score per classe {le.classes_[i]}: {brier:.4f}")
+            print(f"Brier score for class {le.classes_[i]}: {brier:.4f}")
         
         return brier_scores
 
@@ -517,18 +517,18 @@ class CategoricalDataFrame(pd.DataFrame):
         
         if cal_cv >= 2:
             cal = CalibratedClassifierCV(estimator=pipe, method=cal_method, cv=cal_cv)
-            print(f"Addestramento del modello in corso... (n_estimators={n_estimators}, max_depth={max_depth}, calibrazione={cal_method} cv={cal_cv})")
+            print(f"Model training in progress... (n_estimators={n_estimators}, max_depth={max_depth}, calibration={cal_method} cv={cal_cv})")
         else:
             cal = pipe
-            print(f"Addestramento del modello in corso... (n_estimators={n_estimators}, max_depth={max_depth})")
-            print("⚠ Classe con un solo campione nel training: calibrazione saltata.")
+            print(f"Model training in progress... (n_estimators={n_estimators}, max_depth={max_depth})")
+            print("⚠ Class with a single sample in training: calibration skipped.")
         
         cal.fit(X_train, y_train)
         
         if cal_cv >= 2:
-            print(f"✓ Modello addestrato con calibrazione ({cal_method}, cv={cal_cv})")
+            print(f"✓ Model trained with calibration ({cal_method}, cv={cal_cv})")
         else:
-            print("✓ Modello addestrato")
+            print("✓ Model trained")
         
         payload = {
             "model": cal,
@@ -555,11 +555,11 @@ class CategoricalDataFrame(pd.DataFrame):
         }
         
         joblib.dump(payload, model_path)
-        print(f"✓ Modello salvato in: {model_path}")
+        print(f"✓ Model saved in: {model_path}")
         
         removed = delete_facts()
         if removed:
-            print(f"✓ Rimossi {removed} fatti da {os.path.basename(PROLOG_FILE)}")
+            print(f"✓ Removed {removed} facts from {os.path.basename(PROLOG_FILE)}")
                                          
    
  
@@ -643,7 +643,7 @@ class CategoricalDataFrame(pd.DataFrame):
     def evaluate_model_performance(self, model_path: str = MODEL_PATH, 
                                   plot_confusion_matrix: bool = True):
         print(f"\n{'='*60}")
-        print("VALUTAZIONE PERFORMANCE MODELLO".center(60))
+        print("MODEL PERFORMANCE EVALUATION".center(60))
         print('='*60)
         
         try:
@@ -654,15 +654,15 @@ class CategoricalDataFrame(pd.DataFrame):
             class_names = payload.get("class_names", ["low", "medium", "high"])
             test_data = payload.get("test_data")
             
-            print(f"✓ Modello caricato da: {model_path}")
-            print(f"✓ Classi: {class_names}")
-            print(f"✓ Numero di feature: {len(features) if features else 'N/A'}")
+            print(f"✓ Model loaded from: {model_path}")
+            print(f"✓ Classes: {class_names}")
+            print(f"✓ Number of features: {len(features) if features else 'N/A'}")
             
         except FileNotFoundError:
-            print(f"✗ ERRORE: File del modello non trovato in {model_path}")
+            print(f"✗ ERROR: Model file not found in {model_path}")
             raise
         except Exception as e:
-            print(f"✗ ERRORE nel caricamento del modello: {e}")
+            print(f"✗ ERROR while loading the model: {e}")
             raise
         
         if features is not None:
@@ -680,7 +680,7 @@ class CategoricalDataFrame(pd.DataFrame):
                 class_names = list(class_names)
         
         y = y_encoded
-        print(f"✓ Dimensioni dataset: {X.shape}")
+        print(f"✓ Dataset dimensions: {X.shape}")
         
         class_distribution = np.bincount(np.asarray(y, dtype=int))
         if hasattr(class_distribution, 'tolist'):
@@ -688,7 +688,7 @@ class CategoricalDataFrame(pd.DataFrame):
         else:
             class_distribution_list = list(class_distribution)
         
-        print(f"✓ Distribuzione classi: {class_distribution_list}")
+        print(f"✓ Classes distribution: {class_distribution_list}")
         
         metrics = {}
         n_splits = safe_cv_splits(y, model)
@@ -721,7 +721,7 @@ class CategoricalDataFrame(pd.DataFrame):
                       f"± {metrics['cv_accuracy_std']:.3f}")
                 
             except (ValueError, IndexError) as e:
-                print(f"\n⚠ Cross-validation non disponibile: {e}")
+                print(f"\n⚠ Cross-validation not available: {e}")
                 for name in CV_SCORING:
                     metrics[f'cv_{name}_mean'] = None
                     metrics[f'cv_{name}_std'] = None
@@ -769,8 +769,8 @@ class CategoricalDataFrame(pd.DataFrame):
                 target_names=class_names, digits=3
             ))
         else:
-            print("\n⚠ Nessun test set nel modello: metriche holdout non disponibili.")
-            print("  (ri-addestrare il modello per generarlo)")
+            print("\n⚠ No test set in the model: holdout metrics not available.")
+            print("  (retrain the model to generate it)")
             y_test = y_pred_test = None
             metrics['test_n_samples'] = None
         
@@ -797,7 +797,7 @@ class CategoricalDataFrame(pd.DataFrame):
                 metrics['insample_roc_auc_ovo'] = None
                 metrics['insample_roc_auc_ovr'] = None
         
-        print(f"\n{' CONFRONTO ':-^60}")
+        print(f"\n{' COMPARISON ':-^60}")
         print(f"{'':22}{'CV':>10}{'TEST':>12}{'insample':>14}")
         print("-" * 58)
         print(f"{'Accuracy':22}"
@@ -814,13 +814,13 @@ class CategoricalDataFrame(pd.DataFrame):
                   f"{metrics['test_roc_auc_ovo']:>12.3f}"
                   f"{fmt(metrics.get('insample_roc_auc_ovo')):>14}")
         
-        # Matrice di confusione e accuratezza per classe: sul test set
+        # Confusion matrix and accuracy per class: on the test set
         if y_test is not None and y_pred_test is not None:
             cm = confusion_matrix(y_test, y_pred_test)
             metrics['confusion_matrix'] = cm.tolist()
             
             if plot_confusion_matrix:
-                print(f"\n{' Matrice di Confusione ':-^60}")
+                print(f"\n{' Confusion Matrix ':-^60}")
                 
                 fig, ax = plt.subplots(figsize=(8, 6))
                 disp = ConfusionMatrixDisplay(
@@ -828,25 +828,25 @@ class CategoricalDataFrame(pd.DataFrame):
                     display_labels=class_names
                 )
                 disp.plot(ax=ax, cmap='Blues', values_format='d', colorbar=True)
-                ax.set_title(f"Matrice di Confusione (n={len(y_test)})")
+                ax.set_title(f"Confusion Matrix (n={len(y_test)})")
                 
                 ax.text(0.5, -0.15,
                         f"Accuracy: {metrics['test_accuracy']:.3f} | "
-                        f"Campioni: {len(y_test)}",
+                        f"Samples: {len(y_test)}",
                         transform=ax.transAxes, ha='center', fontsize=10)
                 
                 plt.tight_layout()
                 plt.show()
                 _close_figure()
             else:
-                print("\n⚠ Matrice di confusione non visualizzata "
+                print("\n⚠ Confusion matrix not displayed "
                       "(plot_confusion_matrix=False)")
             
-            print("\nMatrice di confusione:")
+            print("\nConfusion matrix:")
             cm_df = pd.DataFrame(cm, index=class_names, columns=class_names)
             print(cm_df.to_string())
             
-            print("\nAccuratezza per classe:")
+            print("\nAccuracy per class:")
             per_class = {}
             for i, class_name in enumerate(class_names):
                 total = cm[i].sum() if i < len(cm) else 0
@@ -867,11 +867,11 @@ class CategoricalDataFrame(pd.DataFrame):
         metrics['evaluation_strategy'] = "train_test_split"
         metrics['plot_confusion_matrix'] = plot_confusion_matrix
         
-        print(f"\n{' Valutazione completata ':-^60}")
-        print(f"Dataset: {metrics['dataset_size']} campioni, {metrics['n_features']} feature")
-        print(f"Classi: {len(class_names)} ({', '.join(class_names)})")
-        print(f"Strategia: holdout test set ({metrics['test_n_samples']} campioni)")
-        print(f"Matrice di confusione visualizzata: {'Sì' if plot_confusion_matrix else 'No'}")
+        print(f"\n{' Evaluation completed ':-^60}")
+        print(f"Dataset: {metrics['dataset_size']} samples, {metrics['n_features']} features")
+        print(f"Classes: {len(class_names)} ({', '.join(class_names)})")
+        print(f"Strategy: holdout test set ({metrics['test_n_samples']} samples)")
+        print(f"Confusion matrix displayed: {'Yes' if plot_confusion_matrix else 'No'}")
         
         return metrics
 

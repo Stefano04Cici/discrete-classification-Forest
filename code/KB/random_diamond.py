@@ -11,61 +11,61 @@ def random_diamond(out_path: Optional[str] = None) -> Dict[str, Any]:
 
     df = pd.read_csv(CATEGORICAL_CSV)
     
-    df_senza_prezzo = df.copy()  
+    df_without_price = df.copy()  
     
-    for nome_colonna_prezzo in ["price", "target", "label", "class"]:
-        if nome_colonna_prezzo in df_senza_prezzo.columns:
-            df_senza_prezzo = df_senza_prezzo.drop(columns=[nome_colonna_prezzo])
+    for price_column_name in ["price", "target", "label", "class"]:
+        if price_column_name in df_without_price.columns:
+            df_without_price = df_without_price.drop(columns=[price_column_name])
             break  
    
-    def generate_casual_value(caratteristica: str) -> str:
+    def generate_random_value(feature: str) -> str:
         
-        nome_caratteristica = caratteristica.lower()
+        feature_name = feature.lower()
         
-        if "carat" in nome_caratteristica:
+        if "carat" in feature_name:
             return random.choice(["low", "medium", "high"])
         
-        if "depth" in nome_caratteristica:
+        if "depth" in feature_name:
             return random.choice(["low", "medium", "high"])
         
-        if "table" in nome_caratteristica:
+        if "table" in feature_name:
             return random.choice(["low", "medium", "high"])
         
-        if "x" in nome_caratteristica or "y" in nome_caratteristica or "z" in nome_caratteristica:
+        if "x" in feature_name or "y" in feature_name or "z" in feature_name:
             return random.choice(["low", "medium", "high"])
         
-        if "cut" in nome_caratteristica:
+        if "cut" in feature_name:
             return random.choice(["fair", "good", "very_good", "premium", "ideal"])
         
-        if "color" in nome_caratteristica:
+        if "color" in feature_name:
             return random.choice(["d", "e", "f", "g", "h", "i", "j"])
         
-        if "clarity" in nome_caratteristica:
+        if "clarity" in feature_name:
             return random.choice(["i1", "si2", "si1", "vs2", "vs1", "vvs2", "vvs1", "if"])
         
-        colonna = df_senza_prezzo[caratteristica]
+        column = df_without_price[feature]
         
-        valori_validi = colonna.dropna().unique().tolist()
+        valid_values = column.dropna().unique().tolist()
         
-        if not valori_validi:  
+        if not valid_values:  
             return "medium"  
         
-        return random.choice(valori_validi)
+        return random.choice(valid_values)
     
-    diamante_casuale = {}
+    random_diamond_data = {}
     
-    for caratteristica in df_senza_prezzo.columns:
-        valore = generate_casual_value(caratteristica)
-        diamante_casuale[caratteristica] = valore
+    for feature in df_without_price.columns:
+        value = generate_random_value(feature)
+        random_diamond_data[feature] = value
     
     if out_path is not None:
         with open(out_path, "w", encoding="utf-8") as file_json:
             json.dump(
-                diamante_casuale,       
+                random_diamond_data,       
                 file_json,              
                 indent=4,               
                 ensure_ascii=False      
             )
     
-    return diamante_casuale
+    return random_diamond_data
 

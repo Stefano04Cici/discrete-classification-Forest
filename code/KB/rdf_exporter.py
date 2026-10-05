@@ -65,14 +65,14 @@ def kb_to_rdf(kb: ExtendedKB, kb_metadata: Optional[Dict[str, Any]] = None) -> G
         level_uri = EX[level]
         g.add((level_uri, RDF.type, EX.BeautyLevel))      
         g.add((level_uri, RDFS.label, Literal(level)))    
-        g.add((level_uri, DC.description, Literal(f"Livello di bellezza {level}")))
+        g.add((level_uri, DC.description, Literal(f"Beauty level {level}")))
         
         if level == "LOW":
-            g.add((level_uri, EX.appreciation, Literal("Basso apprezzamento")))
+            g.add((level_uri, EX.appreciation, Literal("Low appreciation")))
         elif level == "MEDIUM":
-            g.add((level_uri, EX.appreciation, Literal("Apprezzamento medio")))
+            g.add((level_uri, EX.appreciation, Literal("Medium appreciation")))
         elif level == "HIGH":
-            g.add((level_uri, EX.appreciation, Literal("Alto apprezzamento")))
+            g.add((level_uri, EX.appreciation, Literal("High appreciation")))
 
     g.add((EX.hasThreshold, RDF.type, RDF.Property))
     g.add((EX.thresholdOperator, RDF.type, RDF.Property))
@@ -112,7 +112,7 @@ def kb_to_rdf(kb: ExtendedKB, kb_metadata: Optional[Dict[str, Any]] = None) -> G
         feature_category = feature_categories.get(feature_name, EX.DiamondFeature)
         g.add((feature_uri, RDF.type, feature_category))
         g.add((feature_uri, RDFS.label, Literal(feature_name)))
-        g.add((feature_uri, DC.description, Literal(f"Caratteristica del diamante: {feature_name}")))
+        g.add((feature_uri, DC.description, Literal(f"Diamond feature: {feature_name}")))
         
         if "carat" in feature_name:
             g.add((feature_uri, EX.featureCategory, Literal("weight")))
@@ -146,7 +146,7 @@ def kb_to_rdf(kb: ExtendedKB, kb_metadata: Optional[Dict[str, Any]] = None) -> G
         g.add((rule_uri, EX.ruleName, Literal(rule["name"])))
         g.add((rule_uri, RDFS.label, Literal(rule["name"])))
         g.add((rule_uri, EX.indicatesBeautyLevel, EX[str(rule["BeautyLevel"].value).upper()]))
-        g.add((rule_uri, DC.description, Literal(f"Regola composita: {rule['name']}")))
+        g.add((rule_uri, DC.description, Literal(f"Composite rule: {rule['name']}")))
         
         for i, (feature, operator, value) in enumerate(rule["conditions"]):
             cond_uri = URIRef(f"{rule_uri}/condition/{i}")
@@ -163,13 +163,13 @@ def kb_to_rdf(kb: ExtendedKB, kb_metadata: Optional[Dict[str, Any]] = None) -> G
         kb_metadata = {}
     
     g.add((kb_metadata_uri, DC.title, 
-           Literal(kb_metadata.get('title', "Knowledge Base per Valutazione Diamanti"))))
+           Literal(kb_metadata.get('title', "Knowledge Base for Diamond Evaluation"))))
     g.add((kb_metadata_uri, DC.creator, 
-           Literal(kb_metadata.get('creator', "Sistema di Intelligenza Artificiale"))))
+           Literal(kb_metadata.get('creator', "Artificial Intelligence System"))))
     g.add((kb_metadata_uri, DC.date, 
            Literal(str(kb_metadata.get('date', "2024")), datatype=XSD.gYear)))
     g.add((kb_metadata_uri, DC.description, 
-           Literal(kb_metadata.get('description', "Base di conoscenza per la valutazione della qualità dei diamanti basata su caratteristiche delle 4C"))))
+           Literal(kb_metadata.get('description', "Knowledge base for evaluating the quality of diamonds based on the characteristics of the 4C"))))
     g.add((kb_metadata_uri, EX.numThresholds, Literal(len(kb._store), datatype=XSD.integer)))
     g.add((kb_metadata_uri, EX.numCompositeRules, 
            Literal(len(getattr(kb, "composite_rules", [])), datatype=XSD.integer)))
@@ -182,8 +182,8 @@ def save_kb_to_rdf(kb: ExtendedKB, output_path: str = "diamonds_kb.ttl") -> str:
     
     g.serialize(destination=output_path, format="turtle")
     
-    print(f"[RDF] Knowledge Base esportata in: {output_path}")
-    print(f"[RDF] Triplette RDF generate: {len(g)}")
+    print(f"[RDF] Knowledge Base exported in: {output_path}")
+    print(f"[RDF] RDF triples generated: {len(g)}")
     
     return output_path
 
@@ -275,9 +275,9 @@ def load_kb_from_rdf(rdf_path: str) -> ExtendedKB:
             if conditions:
                 kb.add_composite_rule(rule_name, conditions, beauty_level)
     
-    print(f"[RDF] Knowledge Base caricata da: {rdf_path}")
-    print(f"[RDF] Soglie caricate: {len(kb._store)}")
-    print(f"[RDF] Regole composite caricate: {len(kb.composite_rules)}")
+    print(f"[RDF] Knowledge Base loaded from: {rdf_path}")
+    print(f"[RDF] Thresholds loaded: {len(kb._store)}")
+    print(f"[RDF] Composite rules loaded: {len(kb.composite_rules)}")
     
     return kb
 
@@ -298,7 +298,7 @@ def generate_diamond_rdf_report(
     diamond_uri = EX[f"diamond_{slugify(diamond_id)}"]
     
     g.add((diamond_uri, RDF.type, EX.Diamond))
-    g.add((diamond_uri, RDFS.label, Literal(f"Diamante {diamond_id}")))
+    g.add((diamond_uri, RDFS.label, Literal(f"Diamond {diamond_id}")))
     g.add((diamond_uri, DC.date, Literal("2024", datatype=XSD.gYear)))
     
     for feature, value in diamond.items():
@@ -336,8 +336,8 @@ def generate_diamond_rdf_report(
     
     g.serialize(destination=output_path, format="turtle")
     
-    print(f"[RDF] Report diamante generato in: {output_path}")
-    print(f"[RDF] Punteggio fuzzy: {fuzzy_score:.3f}")
+    print(f"[RDF] Diamond report generated in: {output_path}")
+    print(f"[RDF] Fuzzy score: {fuzzy_score:.3f}")
     
     return output_path
 
@@ -535,7 +535,7 @@ def query_rdf_kb(
         json_str = qres.serialize(format='json')
         
         if json_str is None or json_str == '':
-            print("[RDF] Warning: la serializzazione dei risultati ha restituito una stringa vuota")
+            print("[RDF] Warning: the serialization of the results returned an empty string")
             return []
         
         json_data = json.loads(json_str)
@@ -550,10 +550,10 @@ def query_rdf_kb(
         elif 'boolean' in json_data:
             results.append({'boolean': str(json_data['boolean'])})
         
-        print(f"[RDF] Risultati: {len(results)}")
+        print(f"[RDF] Results: {len(results)}")
         
     except Exception as e:
-        print(f"[RDF] Errore opzione nucleare: {e}")
+        print(f"[RDF] Nuclear option error: {e}")
         import traceback
         traceback.print_exc()
         
@@ -595,10 +595,10 @@ def query_rdf_kb_fallback(
             
             results.append(row_dict)
         
-        print(f"[RDF] Fallback: {len(results)} risultati")
+        print(f"[RDF] Fallback: {len(results)} results")
         
     except Exception as e:
-        print(f"[RDF] Errore anche nel fallback: {e}")
+        print(f"[RDF] Error also in the fallback: {e}")
     
     return results
 
@@ -675,7 +675,7 @@ def export_kb_rdf(
     
     g.serialize(destination=output_ttl, format="turtle")
     
-    print(f"[RDF] Knowledge Base esportata in: {output_ttl}")
-    print(f"[RDF] Triplette RDF generate: {len(g)}")
+    print(f"[RDF] Knowledge Base exported in: {output_ttl}")
+    print(f"[RDF] RDF triples generated: {len(g)}")
     
     return output_ttl

@@ -197,7 +197,7 @@ class MiniKB:
             operator="<=",
             value="medium",
             level=BeautyLevel.HIGH,
-            description="Caratura non superiore a medium per buon rapporto qualità-prezzo"
+            description="Carat not greater than medium for good quality-price ratio"
         ))
         
         self.insert_threshold(Threshold(
@@ -205,7 +205,7 @@ class MiniKB:
             operator=">=",
             value="very_good",
             level=BeautyLevel.MEDIUM,
-            description="Taglio almeno very_good per buona brillantezza"
+            description="Cut at least very_good for good brilliance"
         ))
         
         self.insert_threshold(Threshold(
@@ -213,7 +213,7 @@ class MiniKB:
             operator=">=",
             value="h",
             level=BeautyLevel.MEDIUM,
-            description="Colore almeno H (H, G, F, E, D accettabili)"
+            description="Color at least H (H, G, F, E, D acceptable)"
         ))
         
         self.insert_threshold(Threshold(
@@ -221,7 +221,7 @@ class MiniKB:
             operator=">=",
             value="si1",
             level=BeautyLevel.MEDIUM,
-            description="Chiarezza almeno SI1 per poche inclusioni visibili ad occhio nudo"
+            description="Clarity at least SI1 for few inclusions visible to the naked eye"
         ))
         
         self.insert_threshold(Threshold(
@@ -229,7 +229,7 @@ class MiniKB:
             operator="<=",
             value="medium",
             level=BeautyLevel.HIGH,
-            description="Prezzo non superiore a medium per essere considerato conveniente"
+            description="Price not greater than medium to be considered affordable"
         ))
         
         self.insert_threshold(Threshold(
@@ -237,7 +237,7 @@ class MiniKB:
             operator="==",
             value="medium",
             level=BeautyLevel.MEDIUM,
-            description="Profondità ottimale (60-64%) per massima brillantezza"
+            description="Optimal depth (60-64%) for maximum brilliance"
         ))
         
         self.insert_threshold(Threshold(
@@ -245,7 +245,7 @@ class MiniKB:
             operator="==",
             value="medium",
             level=BeautyLevel.MEDIUM,
-            description="Tavola ottimale (55-65%) per proporzioni bilanciate"
+            description="Optimal table (55-65%) for balanced proportions"
         ))
 
 
@@ -440,7 +440,7 @@ class ExtendedKB(MiniKB):
     def populate_default_composite_rules(self) -> None:
         
         self.add_composite_rule(
-            name="DiamantePerfetto",
+            name="PerfectDiamond",
             conditions=[
                 ("cut", ">=", "very_good"),
                 ("color", ">=", "h"),
@@ -450,7 +450,7 @@ class ExtendedKB(MiniKB):
         )
         
         self.add_composite_rule(
-            name="DiamanteEconomico",
+            name="EconomicDiamond",
             conditions=[
                 ("price", "<=", "medium"),
                 ("carat", "<=", "medium"),
@@ -459,7 +459,7 @@ class ExtendedKB(MiniKB):
         )
         
         self.add_composite_rule(
-            name="ProporzioniBilanciate",
+            name="BalancedProportions",
             conditions=[
                 ("depth", "==", "medium"),
                 ("table", "==", "medium"),
@@ -532,15 +532,15 @@ class ExtendedKB(MiniKB):
             self.composite_rules = loaded_rules
             
         except FileNotFoundError:
-            print(f"Nessun file regole composite trovato: {EXKB_PATH}")
+            print(f"No composite rules file found: {EXKB_PATH}")
             self.composite_rules = []
         except json.JSONDecodeError as e:
-            print(f"Errore nel parsing JSON: {e}")
-            print("Il file JSON potrebbe essere corrotto o incompleto")
+            print(f"Error while parsing JSON: {e}")
+            print("The JSON file could be corrupted or incomplete")
             self.composite_rules = []
         except ValueError as e:
-            print(f"Errore nel caricamento BeautyLevel: {e}")
-            print("Assicurati che i valori BeautyLevel siano 'low', 'medium' o 'high'")
+            print(f"Error while loading BeautyLevel: {e}")
+            print("Make sure the BeautyLevel values are 'low', 'medium' or 'high'")
             self.composite_rules = []    
 
   

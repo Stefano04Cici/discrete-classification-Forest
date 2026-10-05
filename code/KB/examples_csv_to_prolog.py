@@ -68,8 +68,8 @@ def delete_facts(prolog_path: str = PROLOG_FILE) -> int:
     start_idx = next((i for i, l in enumerate(lines) if l.strip() == START_MARKER), None)
     end_idx = next((i for i, l in enumerate(lines) if l.strip() == END_MARKER), None)
 
-    # Blocco assente o incoerente: non si scrive nulla, cosi' le regole
-    # restano al sicuro anche se i marker sono andati persi.
+    # Block missing or inconsistent: nothing is written, so the rules
+    # stay safe even if the markers are lost.
     if start_idx is None or end_idx is None or end_idx <= start_idx:
         return 0
 
@@ -96,4 +96,4 @@ def execute_insert_facts(num_diamonds: int=500) -> None:
     insert_facts(PROLOG_FILE, facts_block)
 
     total_facts = num_diamonds * len(COLS)
-    print(f"Scritti {total_facts} fatti per {num_diamonds} diamanti in {PROLOG_FILE}")
+    print(f"Wrote {total_facts} facts for {num_diamonds} diamonds in {PROLOG_FILE}")

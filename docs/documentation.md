@@ -177,14 +177,7 @@ carat_class(Carat, medium) :- Carat >= 0.5, Carat < 1.0.
 carat_class(Carat, high) :- Carat >= 1.0.
 
 Regole Complesse: Abbiamo definito concetti più astratti, ovvero regole che
-combinano più attributi per identificare gemme di interesse particolare. Esempio: La
-regola rare_diamond(X) si attiva solo se il diamante è contemporaneamente puro
-(clarity > vvs2), incolore (color > f) e con taglio ideale:
-
-rare_diamond(X) :-
-prop(X, clarity, if), % Internally Flawless
-prop(X, color, d), % Colorless
-prop(X, cut, ideal) % Best Cut
+combinano più attributi per identificare gemme di interesse particolare.
 
 
 3.2 Threshold System

@@ -1,9 +1,5 @@
-# ICON 25-26
-
-### Diamond Price Prediction & Knowledge Base Reasoning
-
-
-#### Esame di ingegneria della conoscenza, UniBa, realizzato da: 
+# Diamond Price Prediction & Knowledge Base Reasoning
+### made by:
 
 - [R.B.](https://github.com/Hue-Jhan)
 
@@ -13,34 +9,19 @@
 
 ***
 
-### ⚙ Setup iniziale dell'ambiente di lavoro:
+### ⚙ Initial setup of the work environment:
 
-0. Requisiti iniziali:
-    - Python 3.12.3;
-    - [Swi prolog](https://www.swi-prolog.org) 10.0.0-1;
-
-1. Clonare il repository eseguendo il seguente comando su terminale:  
-    ```
-    git clone https://github.com/Ingegneria-del-Software-xddd/Icon-2526-diamonds
-    ```
-    ```
-    cd test-icon
-    ```
-
-2. Creare e attivare un nuovo ambiente virtuale
+1. Create and syncronize a new virtual environment with the dependences
     ```py
-    py -3.11 -m venv .venv
+    uv sync
     ```
+
+2. Activate the virtual enviroment    
     ```
     .venv\Scripts\activate
     ```
 
-3. Installare dipendenze necessarie:
-    ```py
-    pip install pandas numpy scikit-learn matplotlib seaborn scipy pyswip joblib rdflib
-    ```
-
-4. Avviare il programma
+3. Start the program
     ```py
     cd code/
     ```
@@ -50,25 +31,24 @@
 
 ***
 
-## Esecuzione del progetto
+## Project execution
 
-All’avvio, il sistema presenta un menù principale testuale che permette di guidare l’utente in base alle funzionalità disponibili:
+On startup, the system presents a textual main menu that allows guiding the user based on the available functionalities:
 
-<img align="center" src="docs/Screenshot_menu_principale.png" width=430>
+<img align="center" src="docs/img/main_menu.png" width=430>
 
-Le operazioni possibili sono:
+The possible operations are:
 
-- Testare la previsione del Machine Learning sui diamanti inserendo o generando dati e ottenendo stime di prezzo con probabilità e livello di confidenza. 
+- Test the Machine Learning prediction on diamonds by inserting or generating data and obtaining price estimates with probability and confidence level. 
 
-- Esplorare e gestire soglie di valutazione tramite Knowledge Base, applicando regole esperte sulla qualità dei diamanti.
+- Explore and manage evaluation thresholds through the Knowledge Base, applying expert rules on the quality of diamonds.
 
-- Esportare della conoscenza in formato RDF/Turtle, con supporto a query SPARQL e generazione di report semantici. 
+- Export knowledge in RDF/Turtle format, with support for SPARQL queries and generation of semantic reports. 
 
-- Riaddestrare il modello AI;
+- Retrain the AI model;
 
-- Analizzare i dati in modo esplorativo;
+- Analyze the data in an exploratory way;
 
-- Verificare le prestazioni del sistema di apprendimento.
+- Verify the performance of the learning system.
 
-L’esecuzione termina selezionando l’opzione di uscita dal menu.
-
+The execution ends by selecting the exit option from the menu.

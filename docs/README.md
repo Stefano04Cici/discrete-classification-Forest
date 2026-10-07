@@ -346,7 +346,7 @@ To further improve the system, the following developments are hypothesized:
 # 7) Bibliographic References
 
 1. **Dataset:** Diamonds Dataset, Kaggle, (https://www.kaggle.com/datasets/shivam2503/diamonds) Ggplot2 library references;
-2. **Machine Learning:** Scikit-learn Documentation (RandomForest, CalibratedClassifierCV, https://scikit-learn.org/stable/modules/ensemble.htm);
+2. **Machine Learning:** Scikit-learn Documentation (RandomForest, CalibratedClassifierCV, https://scikit-learn.org/stable);
 3. **Prolog Integration:** PySWIP Documentation & Logic Programming with Prolog (Bratko), PySwip official website (https://pypi.org/project/pyswip/);
 4. **Knowledge Engineering:** Russell, S., & Norvig, P. Artificial Intelligence: A Modern Approach. (Chapters on Knowledge Representation).
 5. **RDFLib Documentation:** RDFLib 7.6.0 official documentation, the de facto standard library for RDF in Python. Available at: https://rdflib.readthedocs.io/en/stable/.
